@@ -106,4 +106,26 @@ int main(int argc, char *argv[]){
   prediction = network.read_output_values();
   print_vector(prediction);
 
+  std::cout << "\n\nvalues: " << std::endl;
+  int layer_no = 0;
+  for (const auto& l : network.all_neuron_layers){
+    std::vector<float> values;
+    std::cout << "layer: " << layer_no++ << std::endl;
+    for (const auto& n : l)
+      values.push_back(n->value);
+    print_vector(values);
+  }
+
+
+  std::cout << "\n\nweights: " << std::endl;
+  layer_no = 0;
+  for (const auto& l : network.all_neuron_layers){
+    std::vector<float> weights;
+    std::cout << "layer: " << layer_no++ << std::endl;
+    for (const auto& n : l){
+      for (const auto& s : n->incoming_synapses)
+        weights.push_back(s->weight);
+    }
+    print_vector(weights);
+  }
 }

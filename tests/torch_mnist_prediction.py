@@ -73,5 +73,7 @@ def main():
     sample = torch.ones(1,1,14,14).type(torch.FloatTensor)
     print(model(sample).reshape(-1).detach().numpy())
 
+    from IPython import embed; embed()
+
 if __name__ == "__main__":
     main()
