@@ -1,58 +1,70 @@
-//
-// Created by Khurram Javed on 2021-09-28.
-//
-
 #include <execution>
 #include <algorithm>
 #include <iostream>
-#include "../../../include/nn/networks/layerwise_feedworward.h"
+#include "../../../include/nn/networks/pretrained_dense_network.h"
 
-LayerwiseFeedforward::LayerwiseFeedforward(float step_size,
-                                           float meta_step_size, int seed,
-                                           int no_of_input_features,
-                                           int total_targets,
-                                           float utility_to_keep) {
+#include <torch/script.h>
+
+using namespace torch::indexing;
+
+PretrainedDenseNetwork::PretrainedDenseNetwork(torch::jit::script::Module trained_model,
+                                               float step_size,
+                                               int seed,
+                                               int no_of_input_features,
+                                               int total_targets,
+                                               float utility_to_keep) {
 
   this->mt.seed(seed);
+
   for (int i = 0; i < no_of_input_features; i++) {
     SyncedNeuron *n = new LinearSyncedNeuron(true, false);
     n->neuron_age = 10000000;
-    n->drinking_age = 20000;
     n->drinking_age = 0;
     n->set_layer_number(0);
     this->input_neurons.push_back(n);
     this->all_neurons.push_back(n);
   }
 
-  for (int output_neurons = 0; output_neurons < total_targets; output_neurons++) {
-//    SyncedNeuron *output_neuron = new SigmoidSyncedNeuron(false, true);
-    SyncedNeuron *output_neuron = new LinearSyncedNeuron(false, true);
-    output_neuron->set_layer_number(100);
-    this->all_neurons.push_back(output_neuron);
-    this->output_neurons.push_back(output_neuron);
+  int current_layer_number = 1;
+  for (const auto& param_group : trained_model.parameters()){
+    std::vector<SyncedNeuron*> curr_layer;
+
+    for (int neuron_idx = 0; neuron_idx < param_group.size(0); neuron_idx++) {
+      SyncedNeuron *n;
+      if (current_layer_number == trained_model.parameters().size()){
+        std::cout << "test" << std::endl;
+        n = new SigmoidSyncedNeuron(false, true);
+        this->output_neurons.push_back(n);
+      }
+      else
+        n = new ReluSyncedNeuron(false, false);
+      n->neuron_age = 0;
+      n->drinking_age = 20000;
+      n->set_layer_number(current_layer_number);
+      this->all_neurons.push_back(static_cast<SyncedNeuron*>(n));
+      curr_layer.push_back(static_cast<SyncedNeuron*>(n));
+
+      for (int synapse_idx = 0; synapse_idx < param_group.size(1); synapse_idx++) {
+        auto new_synapse = new SyncedSynapse(this->input_neurons[synapse_idx],
+                                             n,
+                                             param_group.index({neuron_idx, synapse_idx}).item<float>(),
+                                             step_size);
+        this->all_synapses.push_back(new_synapse);
+      }
+
+    }
+
+    this->all_neuron_layers.push_back(curr_layer);
+    current_layer_number += 1;
   }
 
-//  enable LFA
-//  for (int i = 0;i < no_of_input_features;i++) {
-//    for (int outer = 0; outer < total_targets; outer++) {
-//      SyncedSynapse *s = new SyncedSynapse(this->input_neurons[i], this->output_neurons[outer], 0, step_size);
-//      s->turn_on_idbd();
-//      s->set_meta_step_size(meta_step_size);
-//      this->output_synapses.push_back(s);
-//      this->all_synapses.push_back(s);
-//    }
-//  }
-  for(int i = 0; i<10; i++){
-    std::vector<SyncedNeuron*> temp;
-    this->LTU_neuron_layers.push_back(temp);
-  }
 }
 
-LayerwiseFeedforward::~LayerwiseFeedforward() {
+PretrainedDenseNetwork::~PretrainedDenseNetwork() {
 
 }
 
-void LayerwiseFeedforward::forward(std::vector<float> inp) {
+void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 
 //  std::cout << "Set inputs\n";
 
@@ -71,7 +83,7 @@ void LayerwiseFeedforward::forward(std::vector<float> inp) {
 
 
     int counter = 0;
-  for (auto LTU_neuron_list: this->LTU_neuron_layers) {
+  for (auto LTU_neuron_list: this->all_neuron_layers) {
     counter++;
 //    std::cout << "Updating values " << counter << "\n";
     std::for_each(
@@ -124,7 +136,7 @@ void LayerwiseFeedforward::forward(std::vector<float> inp) {
   this->time_step++;
 }
 
-void LayerwiseFeedforward::backward(std::vector<float> target, bool update_weight) {
+void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_weight) {
   this->introduce_targets(target);
 
   std::for_each(
@@ -135,19 +147,19 @@ void LayerwiseFeedforward::backward(std::vector<float> target, bool update_weigh
         n->forward_gradients();
       });
 
-  for (int layer = this->LTU_neuron_layers.size() - 1; layer >= 0; layer--) {
+  for (int layer = this->all_neuron_layers.size() - 1; layer >= 0; layer--) {
     std::for_each(
         std::execution::par_unseq,
-        this->LTU_neuron_layers[layer].begin(),
-        this->LTU_neuron_layers[layer].end(),
+        this->all_neuron_layers[layer].begin(),
+        this->all_neuron_layers[layer].end(),
         [&](SyncedNeuron *n) {
           n->propagate_error();
         });
 
     std::for_each(
         std::execution::par_unseq,
-        this->LTU_neuron_layers[layer].begin(),
-        this->LTU_neuron_layers[layer].end(),
+        this->all_neuron_layers[layer].begin(),
+        this->all_neuron_layers[layer].end(),
         [&](SyncedNeuron *n) {
           n->forward_gradients();
         });
@@ -216,18 +228,18 @@ void LayerwiseFeedforward::backward(std::vector<float> target, bool update_weigh
         });
 
     int counter=0;
-    for(int vector_ind = 0; vector_ind < this->LTU_neuron_layers.size(); vector_ind++) {
-//    for (auto LTU_neuron_list: this->LTU_neuron_layers) {
+    for(int vector_ind = 0; vector_ind < this->all_neuron_layers.size(); vector_ind++) {
+//    for (auto LTU_neuron_list: this->all_neuron_layers) {
       counter++;
 
-      auto it_n = std::remove_if(this->LTU_neuron_layers[vector_ind].begin(),
-                                 this->LTU_neuron_layers[vector_ind].end(),
+      auto it_n = std::remove_if(this->all_neuron_layers[vector_ind].begin(),
+                                 this->all_neuron_layers[vector_ind].end(),
                                  to_delete_synced_n);
-      if (it_n != this->LTU_neuron_layers[vector_ind].end()) {
+      if (it_n != this->all_neuron_layers[vector_ind].end()) {
 //        std::cout << "Deleting unused neurons\n";
-//        std::cout << this->LTU_neuron_layers[vector_ind].size() << std::endl;
-        this->LTU_neuron_layers[vector_ind].erase(it_n, this->LTU_neuron_layers[vector_ind].end());
-//        std::cout << this->LTU_neuron_layers[vector_ind].size() << std::endl;
+//        std::cout << this->all_neuron_layers[vector_ind].size() << std::endl;
+        this->all_neuron_layers[vector_ind].erase(it_n, this->all_neuron_layers[vector_ind].end());
+//        std::cout << this->all_neuron_layers[vector_ind].size() << std::endl;
       }
     }
 //      LTU_neuron_list.erase(it_n, LTU_neuron_list.end());
@@ -249,13 +261,13 @@ void LayerwiseFeedforward::backward(std::vector<float> target, bool update_weigh
 }
 //
 //
-//void LayerwiseFeedforward::imprint_feature(int index, std::vector<float> feature, float step_size, float meta_step_size, int target) {
+//void PretrainedDenseNetwork::imprint_feature(int index, std::vector<float> feature, float step_size, float meta_step_size, int target) {
 //  int counter = 0;
 //  std::uniform_real_distribution<float> prob_sampler(0, 1);
 //
 //  int total_neurons_in_system = 0;
 //  total_neurons_in_system+= this->input_neurons.size();
-//  for(auto n : this->LTU_neuron_layers){
+//  for(auto n : this->all_neuron_layers){
 //    total_neurons_in_system += n.size();
 //  }
 //  float prob_th = 70.0/float(total_neurons_in_system);
@@ -302,7 +314,7 @@ void LayerwiseFeedforward::backward(std::vector<float> target, bool update_weigh
 //    }
 //  }
 //  int depth= 0;
-//  for (auto LTU_neuron_layer : this->LTU_neuron_layers) {
+//  for (auto LTU_neuron_layer : this->all_neuron_layers) {
 //    for (auto n : LTU_neuron_layer) {
 //      if (n->value == 1 && n->neuron_age > n->drinking_age && n->neuron_utility > 0) {
 //        if (prob_sampler(this->mt) < percentage_to_look_at) {
@@ -353,17 +365,17 @@ void LayerwiseFeedforward::backward(std::vector<float> target, bool update_weigh
 //    new_neuron_LTU->activation_threshold = thres_sampler(this->mt);
 ////    std::cout << "Selected threshold " << new_neuron_LTU->activation_threshold << "\n";
 ////    exit(1);
-//    if (this->LTU_neuron_layers.size() >= (max_layer + 1)) {
-//      this->LTU_neuron_layers[max_layer + 1 - 1].push_back(new_neuron);
+//    if (this->all_neuron_layers.size() >= (max_layer + 1)) {
+//      this->all_neuron_layers[max_layer + 1 - 1].push_back(new_neuron);
 //    } else {
-//      if (this->LTU_neuron_layers.size() != max_layer) {
+//      if (this->all_neuron_layers.size() != max_layer) {
 //        std::cout
 //            << "Should not happen; some neurons at layer k have not been added to appropritate vector of vector\n";
 //        exit(1);
 //      }
 //      std::vector < SyncedNeuron * > new_list;
 //      new_list.push_back(new_neuron);
-//      this->LTU_neuron_layers.push_back(new_list);
+//      this->all_neuron_layers.push_back(new_list);
 //    }
 //  }
 //}
@@ -372,7 +384,7 @@ void LayerwiseFeedforward::backward(std::vector<float> target, bool update_weigh
 
 
 
-void LayerwiseFeedforward::imprint_feature(int index, std::vector<float> feature, float step_size, float meta_step_size, int target) {
+void PretrainedDenseNetwork::imprint_feature(int index, std::vector<float> feature, float step_size, float meta_step_size, int target) {
   int counter = 0;
   std::uniform_real_distribution<float> prob_sampler(0, 1);
 
@@ -380,7 +392,7 @@ void LayerwiseFeedforward::imprint_feature(int index, std::vector<float> feature
   int total_neurons_in_system = 0;
   total_neurons_in_system+= this->input_neurons.size();
   neurons_in_layer.push_back(total_neurons_in_system);
-  for(auto n : this->LTU_neuron_layers){
+  for(auto n : this->all_neuron_layers){
     neurons_in_layer.push_back(n.size());
     total_neurons_in_system += n.size();
   }
@@ -432,7 +444,7 @@ void LayerwiseFeedforward::imprint_feature(int index, std::vector<float> feature
     }
   }
   int depth= 0;
-  for (auto LTU_neuron_layer : this->LTU_neuron_layers) {
+  for (auto LTU_neuron_layer : this->all_neuron_layers) {
     for (auto n : LTU_neuron_layer) {
       if (n->value == 1 && n->neuron_age > n->drinking_age && n->neuron_utility > 0) {
         if (prob_sampler(this->mt) < percentage_to_look_at) {
@@ -483,31 +495,31 @@ void LayerwiseFeedforward::imprint_feature(int index, std::vector<float> feature
     new_neuron_LTU->activation_threshold = thres_sampler(this->mt);
 //    std::cout << "Selected threshold " << new_neuron_LTU->activation_threshold << "\n";
 //    exit(1);
-    if (this->LTU_neuron_layers.size() >= (max_layer + 1)) {
-      this->LTU_neuron_layers[max_layer + 1 - 1].push_back(new_neuron);
+    if (this->all_neuron_layers.size() >= (max_layer + 1)) {
+      this->all_neuron_layers[max_layer + 1 - 1].push_back(new_neuron);
     } else {
-      if (this->LTU_neuron_layers.size() != max_layer) {
+      if (this->all_neuron_layers.size() != max_layer) {
         std::cout
             << "Should not happen; some neurons at layer k have not been added to appropritate vector of vector\n";
         exit(1);
       }
       std::vector < SyncedNeuron * > new_list;
       new_list.push_back(new_neuron);
-      this->LTU_neuron_layers.push_back(new_list);
+      this->all_neuron_layers.push_back(new_list);
     }
   }
 }
 
 
 
-void LayerwiseFeedforward::imprint_feature_random(float step_size, float meta_step_size) {
+void PretrainedDenseNetwork::imprint_feature_random(float step_size, float meta_step_size) {
 
   int counter = 0;
   std::uniform_real_distribution<float> prob_sampler(0, 1);
 
   int total_neurons_in_system = 0;
   total_neurons_in_system+= this->input_neurons.size();
-  for(auto n : this->LTU_neuron_layers){
+  for(auto n : this->all_neuron_layers){
     total_neurons_in_system += n.size();
   }
   float prob_th = 50.0/float(total_neurons_in_system);
@@ -555,7 +567,7 @@ void LayerwiseFeedforward::imprint_feature_random(float step_size, float meta_st
     }
   }
 //  int depth= 0;
-//  for (auto LTU_neuron_layer : this->LTU_neuron_layers) {
+//  for (auto LTU_neuron_layer : this->all_neuron_layers) {
 //    for (auto n : LTU_neuron_layer) {
 //      if (sign_sampler(this->mt) > 0.5 && n->neuron_age > n->drinking_age) {
 //        if (prob_sampler(this->mt) < percentage_to_look_at) {
@@ -597,17 +609,17 @@ void LayerwiseFeedforward::imprint_feature_random(float step_size, float meta_st
     new_neuron_LTU->activation_threshold = thres_sampler(this->mt);
 //    std::cout << "Selected threshold " << new_neuron_LTU->activation_threshold << "\n";
 //    exit(1);
-    if (this->LTU_neuron_layers.size() >= (max_layer + 1)) {
-      this->LTU_neuron_layers[max_layer + 1 - 1].push_back(new_neuron);
+    if (this->all_neuron_layers.size() >= (max_layer + 1)) {
+      this->all_neuron_layers[max_layer + 1 - 1].push_back(new_neuron);
     } else {
-      if (this->LTU_neuron_layers.size() != max_layer) {
+      if (this->all_neuron_layers.size() != max_layer) {
         std::cout
             << "Should not happen; some neurons at layer k have not been added to appropritate vector of vector\n";
         exit(1);
       }
       std::vector < SyncedNeuron * > new_list;
       new_list.push_back(new_neuron);
-      this->LTU_neuron_layers.push_back(new_list);
+      this->all_neuron_layers.push_back(new_list);
     }
   }
 
@@ -654,7 +666,7 @@ void LayerwiseFeedforward::imprint_feature_random(float step_size, float meta_st
 //    }
 //  }
 //  int depth= 0;
-//  for (auto LTU_neuron_layer : this->LTU_neuron_layers) {
+//  for (auto LTU_neuron_layer : this->all_neuron_layers) {
 //    for (auto n : LTU_neuron_layer) {
 //      if (sign_sampler(this->mt) > 0.5 && n->neuron_age > n->drinking_age && n->neuron_utility > n->incoming_synapses.size()*util_value_temp) {
 //        if (prob_sampler(this->mt) < percentage_to_look_at) {
@@ -696,24 +708,24 @@ void LayerwiseFeedforward::imprint_feature_random(float step_size, float meta_st
 //    new_neuron_LTU->activation_threshold = thres_sampler(this->mt);
 ////    std::cout << "Selected threshold " << new_neuron_LTU->activation_threshold << "\n";
 ////    exit(1);
-//    if (this->LTU_neuron_layers.size() >= (max_layer + 1)) {
-//      this->LTU_neuron_layers[max_layer + 1 - 1].push_back(new_neuron);
+//    if (this->all_neuron_layers.size() >= (max_layer + 1)) {
+//      this->all_neuron_layers[max_layer + 1 - 1].push_back(new_neuron);
 //    } else {
-//      if (this->LTU_neuron_layers.size() != max_layer) {
+//      if (this->all_neuron_layers.size() != max_layer) {
 //        std::cout
 //            << "Should not happen; some neurons at layer k have not been added to appropritate vector of vector\n";
 //        exit(1);
 //      }
 //      std::vector < SyncedNeuron * > new_list;
 //      new_list.push_back(new_neuron);
-//      this->LTU_neuron_layers.push_back(new_list);
+//      this->all_neuron_layers.push_back(new_list);
 //    }
 //  }
 }
 
 
 
-//void LayerwiseFeedforward::imprint_feature(int index, std::vector<float> feature) {
+//void PretrainedDenseNetwork::imprint_feature(int index, std::vector<float> feature) {
 //  int counter = 0;
 //  std::uniform_real_distribution<float> prob_sampler(0, 1);
 //  std::uniform_int_distribution<int> prob_sampler_age(1000, 30000);
@@ -738,7 +750,7 @@ void LayerwiseFeedforward::imprint_feature_random(float step_size, float meta_st
 //    }
 //  }
 //  int depth = 0;
-////  for (auto LTU_neuron_layer : this->LTU_neuron_layers) {
+////  for (auto LTU_neuron_layer : this->all_neuron_layers) {
 ////    for (auto n : LTU_neuron_layer) {
 ////      if (n->value == 1 and n->neuron_age > 5000) {
 ////        if (prob_sampler(this->mt) < percentage_to_look_at) {
@@ -772,17 +784,17 @@ void LayerwiseFeedforward::imprint_feature_random(float step_size, float meta_st
 //    std::uniform_real_distribution<float> thres_sampler(0, new_neuron->incoming_synapses.size() - 0.5);
 ////    new_neuron->activation_threshold = thres_sampler(this->mt);
 //
-//    if (this->LTU_neuron_layers.size() >= (max_layer + 1)) {
-//      this->LTU_neuron_layers[max_layer + 1 - 1].push_back(new_neuron);
+//    if (this->all_neuron_layers.size() >= (max_layer + 1)) {
+//      this->all_neuron_layers[max_layer + 1 - 1].push_back(new_neuron);
 //    } else {
-//      if (this->LTU_neuron_layers.size() != max_layer) {
+//      if (this->all_neuron_layers.size() != max_layer) {
 //        std::cout
 //            << "Should not happen; some neurons at layer k have not been added to appropritate vector of vector\n";
 //        exit(1);
 //      }
 //      std::vector < SyncedNeuron * > new_list;
 //      new_list.push_back(new_neuron);
-//      this->LTU_neuron_layers.push_back(new_list);
+//      this->all_neuron_layers.push_back(new_list);
 //    }
 //  }
 //}

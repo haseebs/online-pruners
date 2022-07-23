@@ -24,6 +24,7 @@ int main(int argc, const char* argv[]) {
 
   std::cout << "ok\n";
   float a;
+  std::cout << module.parameters().size() << std::endl;
   for (const auto& k : module.parameters()){
     std::cout << "shape: " << k.size(1) << std::endl;
     std::cout << k.index({0,0}) << std::endl;

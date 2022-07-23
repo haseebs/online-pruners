@@ -27,29 +27,6 @@ def set_random_seed(seed: int) -> None:
     torch.manual_seed(seed)
 
 
-def train(epoch, cuda, model, train_loader, optimizer):
-    model.train()
-    for batch_idx, (data, target) in enumerate(train_loader):
-        if cuda:
-            data, target = data.cuda(), target.cuda()
-        data, target = Variable(data), Variable(target)
-        optimizer.zero_grad()
-        output = model(data)
-        loss = F.nll_loss(output, target)
-        loss.backward()
-        optimizer.step()
-        if batch_idx % 100 == 0:
-            print(
-                "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
-                    epoch,
-                    batch_idx * len(data),
-                    len(train_loader.dataset),
-                    100.0 * batch_idx / len(train_loader),
-                    loss.data,
-                )
-            )
-
-
 def test(cuda, model, test_loader):
     model.eval()
     test_loss = 0
@@ -59,7 +36,8 @@ def test(cuda, model, test_loader):
             data, target = data.cuda(), target.cuda()
         data, target = Variable(data, volatile=True), Variable(target)
         output = model(data)
-        test_loss += F.nll_loss(output, target, size_average=False).data
+        test_loss += F.mse_loss(output, F.one_hot(target, num_classes=10).type(torch.FloatTensor), size_average=False).data
+        #test_loss += F.nll_loss(output, target, size_average=False).data
         pred = output.data.max(1, keepdim=True)[1]
         correct += pred.eq(target.data.view_as(pred)).long().cpu().sum()
 
@@ -83,11 +61,11 @@ def main():
     parser.add_argument( "-c", "--comment", help="comment for the experiment (can be used to filter within one db)", default="", type=str,)
     parser.add_argument( "--epochs", help="number of epochs", default=3, type=int)
 
-    parser.add_argument("--step-size", help="step size", default=0.01, type=float)
+    parser.add_argument("--step-size", help="step size", default=0.5, type=float)
     parser.add_argument("--batch-size", help="", default=64, type=int)
     parser.add_argument("--test-batch-size", help="", default=1000, type=int)
     parser.add_argument("--momentum", help="", default=0.5, type=float)
-    parser.add_argument("--cuda", help="", default=1, type=int)
+    parser.add_argument("--cuda", help="", default=0, type=int)
 
     # fmt: on
 
@@ -121,14 +99,42 @@ def main():
     )
 
     model = FCNet()
-    from IPython import embed; embed(); exit()
+    #from IPython import embed; embed(); exit()
     if args.cuda:
         model.cuda()
 
     optimizer = optim.SGD(model.parameters(), lr=args.step_size, momentum=args.momentum)
 
+    running_acc = 0;
     for epoch in range(1, args.epochs + 1):
-        train(epoch, args.cuda, model, train_loader, optimizer)
+        #train(epoch, args.cuda, model, train_loader, optimizer)
+        model.train()
+        for batch_idx, (data, target) in enumerate(train_loader):
+            if args.cuda:
+                data, target = data.cuda(), target.cuda()
+            data, target = Variable(data), Variable(target)
+            optimizer.zero_grad()
+            output = model(data)
+            #loss = F.nll_loss(output, target)
+            loss = F.mse_loss(output, F.one_hot(target, num_classes=10).type(torch.FloatTensor))
+            loss.backward()
+            optimizer.step()
+
+            pred = output.data.max(1, keepdim=True)[1]
+            correct = pred.eq(target.data.view_as(pred)).long().cpu().sum()
+            running_acc = 0.995 * running_acc + 0.005 * correct / args.batch_size
+            if batch_idx % 100 == 0:
+                print(
+                    "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tRunning Acc: {:.3f}".format(
+                        epoch,
+                        batch_idx * len(data),
+                        len(train_loader.dataset),
+                        100.0 * batch_idx / len(train_loader),
+                        loss.data,
+                        running_acc,
+                    )
+                )
+
         test(args.cuda, model, test_loader)
 
     print("total time: \t", str(timedelta(seconds=timer() - start)))

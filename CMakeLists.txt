@@ -18,12 +18,20 @@ find_package(Torch REQUIRED)
 
 add_executable(loading-test loading-test.cpp)
 
+add_executable(ModelExportTest src/utils.cpp include/utils.h include/experiment/Experiment.h src/experiment/Experiment.cpp include/experiment/Database.h
+        src/experiment/Database.cpp include/experiment/Metric.h src/experiment/Metric.cpp include/nn/utils.h src/nn/utils.cpp
+        include/nn/message.h src/nn/message.cpp include/nn/dynamic_elem.h src/nn/dynamic_elem.cpp
+        include/nn/networks/synced_network.h src/nn/networks/synced_network.cpp
+        include/nn/synced_neuron.h include/nn/synced_synapse.h src/nn/synced_neuron.cpp src/nn/synced_synapse.cpp
+        include/nn/networks/pretrained_dense_network.h src/nn/networks/pretrained_dense_network.cpp
+        include/json.hpp tests/cpp_mnist_prediction.cpp)
+
 add_executable(MNISTPruning src/utils.cpp include/utils.h include/experiment/Experiment.h src/experiment/Experiment.cpp include/experiment/Database.h
         src/experiment/Database.cpp include/experiment/Metric.h src/experiment/Metric.cpp include/nn/utils.h src/nn/utils.cpp
         include/nn/message.h src/nn/message.cpp include/nn/dynamic_elem.h src/nn/dynamic_elem.cpp
         include/nn/networks/synced_network.h src/nn/networks/synced_network.cpp
         include/nn/synced_neuron.h include/nn/synced_synapse.h src/nn/synced_neuron.cpp src/nn/synced_synapse.cpp
-        include/nn/networks/layerwise_feedworward.h src/nn/networks/layerwise_feedforward.cpp
+        include/nn/networks/pretrained_dense_network.h src/nn/networks/pretrained_dense_network.cpp
         include/json.hpp experiment_prune_mnist.cpp)
 
 
@@ -37,6 +45,11 @@ add_executable(MNISTPruning src/utils.cpp include/utils.h include/experiment/Exp
 # For linking locally
 target_link_libraries(MNISTPruning PUBLIC tbb)
 target_link_libraries(MNISTPruning PUBLIC mariadb)
+target_link_libraries(MNISTPruning PUBLIC torch)
+
+target_link_libraries(ModelExportTest PUBLIC tbb)
+target_link_libraries(ModelExportTest PUBLIC mariadb)
+target_link_libraries(ModelExportTest PUBLIC torch)
 
 target_link_libraries(loading-test "${TORCH_LIBRARIES}")
 

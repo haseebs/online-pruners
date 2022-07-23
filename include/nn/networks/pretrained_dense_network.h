@@ -1,11 +1,5 @@
-//
-// Created by Khurram Javed on 2021-09-28.
-//
-
-#ifndef INCLUDE_NN_NETWORKS_LAYERWISE_FEEDWORWARD_H_
-#define INCLUDE_NN_NETWORKS_LAYERWISE_FEEDWORWARD_H_
-
-
+#ifndef INCLUDE_NN_NETWORKS_PRETRAINED_DENSE_H_
+#define INCLUDE_NN_NETWORKS_PRETRAINED_DENSE_H_
 
 
 #include <vector>
@@ -16,18 +10,24 @@
 #include "../synced_neuron.h"
 #include "../dynamic_elem.h"
 #include "./synced_network.h"
+#include <torch/script.h>
 
-class LayerwiseFeedforward : public SyncedNetwork {
+class PretrainedDenseNetwork : public SyncedNetwork {
 
  public:
 
   std::vector<SyncedSynapse *> active_synapses;
 
-  std::vector<std::vector<SyncedNeuron *>> LTU_neuron_layers;
+  std::vector<std::vector<SyncedNeuron *>> all_neuron_layers;
 
-  LayerwiseFeedforward(float step_size, float meta_step_size, int seed, int no_of_input_features, int total_targets, float utility_to_keep);
+  PretrainedDenseNetwork(torch::jit::script::Module trained_model,
+                         float step_size,
+                         int seed,
+                         int no_of_input_features,
+                         int total_targets,
+                         float utility_to_keep);
 
-  ~LayerwiseFeedforward();
+  ~PretrainedDenseNetwork();
 
   void print_graph(SyncedNeuron *root);
 
@@ -53,4 +53,4 @@ class LayerwiseFeedforward : public SyncedNetwork {
 };
 
 
-#endif //INCLUDE_NN_NETWORKS_LAYERWISE_FEEDWORWARD_H_
+#endif //INCLUDE_NN_NETWORKS_PRETRAINED_DENSE_NETWORK
