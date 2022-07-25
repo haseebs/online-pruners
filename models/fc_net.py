@@ -7,7 +7,7 @@ class FCNet(nn.Module):
     # This defines the structure of the NN.
     def __init__(self):
         super(FCNet, self).__init__()
-        self.fc1 = nn.Linear(14*14, 7, bias=False)
+        self.fc1 = nn.Linear(14 * 14, 7, bias=False)
         self.fc2 = nn.Linear(7, 6, bias=False)
         self.fc3 = nn.Linear(6, 5, bias=False)
         self.fc4 = nn.Linear(5, 4, bias=False)
@@ -27,4 +27,4 @@ class FCNet(nn.Module):
         # x = F.relu(self.fc5(x))
         # x = F.dropout(x, training=self.training)
         return F.sigmoid(x)
-        #return F.log_softmax(x, dim=1)
+        # return F.log_softmax(x, dim=1)

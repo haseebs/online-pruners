@@ -14,16 +14,6 @@ from torch.autograd import Variable
 import numpy as np
 
 
-def set_random_seed(seed: int) -> None:
-    """
-    Seed the different random generators.
-    :param seed:
-    """
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-
-
 def main():
     # fmt: off
     parser = argparse.ArgumentParser()
@@ -42,9 +32,7 @@ def main():
     # fmt: on
 
     args = parser.parse_args()
-    set_random_seed(args.seed)
 
-    start = timer()
     # load the data
     train_loader = torch.utils.data.DataLoader(
         datasets.MNIST(
@@ -52,14 +40,18 @@ def main():
             train=True,
             download=True,
             transform=transforms.Compose(
-                [transforms.ToTensor(), transforms.Resize(14), transforms.Normalize((0.1307,), (0.2801,))]
+                [
+                    transforms.ToTensor(),
+                    transforms.Resize(14),
+                    transforms.Normalize((0.1307,), (0.2801,)),
+                ]
             ),
         ),
         batch_size=args.batch_size,
         shuffle=False,
     )
 
-    model = torch.jit.load("mnist_small.pt")
+    model = torch.jit.load("trained_models/mnist_small.pt")
     if args.cuda:
         model.cuda()
 
@@ -68,12 +60,23 @@ def main():
     if args.cuda:
         sample = sample
 
-    print(model(sample).reshape(-1).detach().numpy())
+    start = timer()
+    print("input: ", sample)
+    print("pred: ", model(sample).reshape(-1).detach().numpy())
+    print("\n\n\n")
 
-    sample = torch.ones(1,1,14,14).type(torch.FloatTensor)
-    print(model(sample).reshape(-1).detach().numpy())
+    sample = torch.ones(1, 1, 14, 14).type(torch.FloatTensor)
+    print("input: ", sample)
+    print("pred: ", model(sample).reshape(-1).detach().numpy())
+    print("\n\n\n")
 
-    from IPython import embed; embed()
+    print("weights: ")
+    for k in model.named_parameters():
+        print(k)
+
+    print("time for preds: \t", str(timedelta(seconds=timer() - start)))
+    print("fast af...")
+
 
 if __name__ == "__main__":
     main()

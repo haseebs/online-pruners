@@ -15,117 +15,110 @@
 
 #include "../include/utils.h"
 #include "../include/nn/networks/pretrained_dense_network.h"
-#include "../include/experiment/Experiment.h"
 #include "../include/nn/utils.h"
-#include "../include/experiment/Metric.h"
-#include "../include/environments/mnist/mnist_reader.hpp"
-#include "../include/environments/mnist/mnist_utils.hpp"
 
 
 
 int main(int argc, char *argv[]){
+	torch::jit::script::Module trained_model;
+	try {
+		std::cout << "loading the torch model from: \t" << "trained_models/mnist_small.pt" << std::endl;
+		trained_model = torch::jit::load("trained_models/mnist_small.pt");
+	}
+	catch (const c10::Error& e) {
+		std::cerr << "error loading the model\n";
+		return -1;
+	}
+
+	PretrainedDenseNetwork network = PretrainedDenseNetwork(trained_model,
+	                                                        0,
+	                                                        1,
+	                                                        14*14,
+	                                                        10,
+	                                                        0.001);
 
 
-  float running_error = 6;
-  float accuracy = 0.1;
-  Experiment *my_experiment = new ExperimentJSON(argc, argv);
+	std::cout << "Network confing\n";
+	std::cout << "No\tSize\tSynapses\tOutput\n";
+	for(int layer_no = 0; layer_no < network.all_neuron_layers.size(); layer_no++)
+		std::cout <<  layer_no << "\t" << network.all_neuron_layers[layer_no].size() << "\t" << network.all_synapses.size() << "\t\t" << network.output_synapses.size() <<  std::endl;
+	std::cout <<  1000 << "\t" << network.output_neurons.size() << "\t" << network.all_synapses.size() << "\t\t" << network.output_synapses.size() <<  std::endl;
 
-  Metric error_metric = Metric(my_experiment->database_name, "error_table",
-                               std::vector < std::string > {"step", "run", "error", "accuracy"},
-                               std::vector < std::string > {"int", "int", "real", "real"},
-                               std::vector < std::string > {"step", "run"});
-  Metric error_metric_test = Metric(my_experiment->database_name, "test_set",
-                               std::vector < std::string > {"step", "run", "accuracy", "mode"},
-                               std::vector < std::string > {"int", "int", "real", "int"},
-                               std::vector < std::string > {"step", "run", "mode"});
+	// preprocess dataset
+	auto train_dataset =
+		torch::data::datasets::MNIST("data/")
+		.map(torch::data::transforms::Normalize<>(0.1307, 0.2801))
+		.map(torch::data::transforms::Stack<>());
+	int total_training_items = 60000;
+	std::vector<std::vector<float> > images;
+	std::vector<std::vector<float> > targets;
 
+	for(int counter = 0; counter < total_training_items; counter++) {
+		std::vector<float> x_temp;
+		auto x = torch::nn::functional::interpolate(train_dataset.get_batch(counter).data,
+		                                            torch::nn::functional::InterpolateFuncOptions().size(std::vector<int64_t>({14,14})).mode(torch::kBilinear).align_corners(false));
+		auto x_vec = x.reshape({14*14});
+		for (int i = 0; i < 14*14; i++)
+			x_temp.push_back(x_vec.index({i}).item<float>());
+		images.push_back(x_temp);
 
-  torch::jit::script::Module trained_model;
-  try {
-    // Deserialize the ScriptModule from a file using torch::jit::load().
-    std::cout << "loading the torch model from: \t" << my_experiment->get_string_param("trained_model_path") << std::endl;
-    trained_model = torch::jit::load(my_experiment->get_string_param("trained_model_path"));
-  }
-  catch (const c10::Error& e) {
-    std::cerr << "error loading the model\n";
-    return -1;
-  }
+		std::vector<float> y_vec;
+		y_vec.push_back(train_dataset.get_batch(counter).target.item<float>());
+		targets.push_back(y_vec);
+	}
 
-  PretrainedDenseNetwork network = PretrainedDenseNetwork(trained_model,
-                                                          my_experiment->get_float_param("step_size"),
-                                                          my_experiment->get_int_param("seed"),
-                                                          14*14,
-                                                          10,
-                                                          0.001);
+	// pred on mnist input
+	auto x = images[0];
+	float y_index = targets[0][0];
+	std::vector<float> y(10);
+	y[y_index] = 1;
 
-  std::cout << "Step " << 0 << std::endl;
-
-  std::cout << "Network confing\n";
-  std::cout << "No\tSize\tSynapses\tOutput\n";
-  for(int layer_no = 0; layer_no < network.all_neuron_layers.size(); layer_no++){
-    std::cout <<  layer_no << "\t" << network.all_neuron_layers[layer_no].size() << "\t" << network.all_synapses.size() << "\t\t" << network.output_synapses.size() <<  std::endl;
-  }
-  //TODO save the scaled mnist
-  std::vector<std::vector<std::string>> error_logger;
-  std::vector<std::vector<std::string>> error_logger_test;
-
-  auto train_dataset =
-    torch::data::datasets::MNIST("data/")
-        .map(torch::data::transforms::Normalize<>(0.1307, 0.2801))
-        .map(torch::data::transforms::Stack<>());
-  int total_training_items = 60000;
-  std::vector<std::vector<float>> images;
-  std::vector<std::vector<float>> targets;
-
-  for(int counter = 0; counter < total_training_items; counter++){
-    std::vector<float> x_temp;
-    auto x = torch::nn::functional::interpolate(train_dataset.get_batch(counter).data,
-                                                torch::nn::functional::InterpolateFuncOptions().size(std::vector<int64_t>({14,14})).mode(torch::kBilinear).align_corners(false));
-    auto x_vec = x.reshape({14*14});
-    for (int i = 0; i < 14*14; i++)
-      x_temp.push_back(x_vec.index({i}).item<float>());
-    images.push_back(x_temp);
-
-    std::vector<float> y_vec;
-    y_vec.push_back(train_dataset.get_batch(counter).target.item<float>());
-    targets.push_back(y_vec);
-  }
-
-  std::mt19937 mt(my_experiment->get_int_param("seed"));
-  auto x = images[0];
-  float y_index = targets[0][0];
-  std::vector<float> y(10);
-  y[y_index] = 1;
-
-  network.forward(x);
-  auto prediction = network.read_output_values();
-  print_vector(prediction);
-
-  std::vector<float> sample_of_ones(14*14, 1.0);
-  network.forward(sample_of_ones);
-  prediction = network.read_output_values();
-  print_vector(prediction);
-
-  std::cout << "\n\nvalues: " << std::endl;
-  int layer_no = 0;
-  for (const auto& l : network.all_neuron_layers){
-    std::vector<float> values;
-    std::cout << "layer: " << layer_no++ << std::endl;
-    for (const auto& n : l)
-      values.push_back(n->value);
-    print_vector(values);
-  }
+	std::cout << "input: ";
+	print_vector(x);
+	network.forward(x);
+	auto prediction = network.read_output_values();
+	std::cout << "pred: ";
+	print_vector(prediction);
 
 
-  std::cout << "\n\nweights: " << std::endl;
-  layer_no = 0;
-  for (const auto& l : network.all_neuron_layers){
-    std::vector<float> weights;
-    std::cout << "layer: " << layer_no++ << std::endl;
-    for (const auto& n : l){
-      for (const auto& s : n->incoming_synapses)
-        weights.push_back(s->weight);
-    }
-    print_vector(weights);
-  }
+	// pred on vector of ones
+	std::cout << "\n\n\n\n" << std::endl;
+	std::vector<float> sample_of_ones(14*14, 1.0);
+	std::cout << "input: ";
+	print_vector(sample_of_ones);
+	network.forward(sample_of_ones);
+	prediction = network.read_output_values();
+	std::cout << "pred: ";
+	print_vector(prediction);
+
+//  std::cout << "\n\n\n\nvalues: " << std::endl;
+//  int layer_no = 0;
+//  for (const auto& l : network.all_neuron_layers){
+//    std::vector<float> values;
+//    std::cout << "layer: " << layer_no++ << std::endl;
+//    for (const auto& n : l)
+//      values.push_back(n->value);
+//    print_vector(values);
+//  }
+
+
+	std::cout << "\n\n\nweights: " << std::endl;
+	int layer_no = 0;
+	for (const auto& l : network.all_neuron_layers) {
+		std::cout << "layer: " << layer_no++ << std::endl;
+		for (const auto& n : l) {
+			std::vector<float> weights;
+			for (const auto& s : n->incoming_synapses)
+				weights.push_back(s->weight);
+			print_vector(weights);
+		}
+		std::cout << "\n\n" << std::endl;
+	}
+	std::cout << "layer: " << 1000 << std::endl;
+	for (const auto& n : network.output_neurons) {
+		std::vector<float> weights;
+		for (const auto& s : n->incoming_synapses)
+			weights.push_back(s->weight);
+		print_vector(weights);
+	}
 }

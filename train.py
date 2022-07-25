@@ -36,8 +36,12 @@ def test(cuda, model, test_loader):
             data, target = data.cuda(), target.cuda()
         data, target = Variable(data, volatile=True), Variable(target)
         output = model(data)
-        test_loss += F.mse_loss(output, F.one_hot(target, num_classes=10).type(torch.FloatTensor), size_average=False).data
-        #test_loss += F.nll_loss(output, target, size_average=False).data
+        test_loss += F.mse_loss(
+            output,
+            F.one_hot(target, num_classes=10).type(torch.FloatTensor),
+            size_average=False,
+        ).data
+        # test_loss += F.nll_loss(output, target, size_average=False).data
         pred = output.data.max(1, keepdim=True)[1]
         correct += pred.eq(target.data.view_as(pred)).long().cpu().sum()
 
@@ -80,7 +84,11 @@ def main():
             train=True,
             download=True,
             transform=transforms.Compose(
-                [transforms.ToTensor(), transforms.Resize(14), transforms.Normalize((0.1307,), (0.2801,))]
+                [
+                    transforms.ToTensor(),
+                    transforms.Resize(14),
+                    transforms.Normalize((0.1307,), (0.2801,)),
+                ]
             ),
         ),
         batch_size=args.batch_size,
@@ -91,7 +99,11 @@ def main():
             "../mnist_data",
             train=False,
             transform=transforms.Compose(
-                [transforms.ToTensor(), transforms.Resize(14), transforms.Normalize((0.1307,), (0.2801,))]
+                [
+                    transforms.ToTensor(),
+                    transforms.Resize(14),
+                    transforms.Normalize((0.1307,), (0.2801,)),
+                ]
             ),
         ),
         batch_size=args.test_batch_size,
@@ -99,15 +111,15 @@ def main():
     )
 
     model = FCNet()
-    #from IPython import embed; embed(); exit()
+    # from IPython import embed; embed(); exit()
     if args.cuda:
         model.cuda()
 
     optimizer = optim.SGD(model.parameters(), lr=args.step_size, momentum=args.momentum)
 
-    running_acc = 0;
+    running_acc = 0
     for epoch in range(1, args.epochs + 1):
-        #train(epoch, args.cuda, model, train_loader, optimizer)
+        # train(epoch, args.cuda, model, train_loader, optimizer)
         model.train()
         for batch_idx, (data, target) in enumerate(train_loader):
             if args.cuda:
@@ -115,8 +127,10 @@ def main():
             data, target = Variable(data), Variable(target)
             optimizer.zero_grad()
             output = model(data)
-            #loss = F.nll_loss(output, target)
-            loss = F.mse_loss(output, F.one_hot(target, num_classes=10).type(torch.FloatTensor))
+            # loss = F.nll_loss(output, target)
+            loss = F.mse_loss(
+                output, F.one_hot(target, num_classes=10).type(torch.FloatTensor)
+            )
             loss.backward()
             optimizer.step()
 
@@ -145,7 +159,7 @@ def main():
     if args.cuda:
         sample = sample
     traced_script_module = torch.jit.trace(model, sample)
-    traced_script_module.save("mnist_small.pt")
+    traced_script_module.save("trained_models/mnist_small.pt")
 
 
 if __name__ == "__main__":
