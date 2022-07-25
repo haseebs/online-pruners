@@ -7,11 +7,11 @@ class FCNet(nn.Module):
     # This defines the structure of the NN.
     def __init__(self):
         super(FCNet, self).__init__()
-        self.fc1 = nn.Linear(14 * 14, 7, bias=False)
-        self.fc2 = nn.Linear(7, 6, bias=False)
-        self.fc3 = nn.Linear(6, 5, bias=False)
-        self.fc4 = nn.Linear(5, 4, bias=False)
-        self.fc5 = nn.Linear(4, 10, bias=False)
+        self.fc1 = nn.Linear(14 * 14, 30, bias=False)
+        self.fc2 = nn.Linear(30, 30, bias=False)
+        self.fc3 = nn.Linear(30, 30, bias=False)
+        self.fc4 = nn.Linear(30, 30, bias=False)
+        self.fc5 = nn.Linear(30, 10, bias=False)
 
     # self.dropout = nn.Dropout2d()  #Dropout
 
