@@ -11,10 +11,10 @@ PretrainedDenseNetwork::PretrainedDenseNetwork(torch::jit::script::Module traine
                                                float step_size,
                                                int seed,
                                                int no_of_input_features,
-                                               int total_targets,
                                                float utility_to_keep) {
 
 	this->mt.seed(seed);
+  //TODO make sing;le threaded
 
 	for (int i = 0; i < no_of_input_features; i++) {
 		SyncedNeuron *n = new LinearSyncedNeuron(true, false);
@@ -82,7 +82,7 @@ void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 //  std::cout << "Firing\n";
 
 	std::for_each(
-		std::execution::par_unseq,
+		std::execution::unseq,
 		this->input_neurons.begin(),
 		this->input_neurons.end(),
 		[&](SyncedNeuron *n) {
@@ -96,7 +96,7 @@ void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 		counter++;
 //    std::cout << "Updating values " << counter << "\n";
 		std::for_each(
-			std::execution::par_unseq,
+			std::execution::unseq,
 			LTU_neuron_list.begin(),
 			LTU_neuron_list.end(),
 			[&](SyncedNeuron *n) {
@@ -105,7 +105,7 @@ void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 
 //    std::cout << "Firing " << counter << "\n";
 		std::for_each(
-			std::execution::par_unseq,
+			std::execution::unseq,
 			LTU_neuron_list.begin(),
 			LTU_neuron_list.end(),
 			[&](SyncedNeuron *n) {
@@ -117,7 +117,7 @@ void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 
 //  std::cout << "Updating values output \n";
 	std::for_each(
-		std::execution::par_unseq,
+		std::execution::unseq,
 		this->output_neurons.begin(),
 		this->output_neurons.end(),
 		[&](SyncedNeuron *n) {
@@ -126,7 +126,7 @@ void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 
 //  std::cout << "Firing output \n";
 	std::for_each(
-		std::execution::par_unseq,
+		std::execution::unseq,
 		this->output_neurons.begin(),
 		this->output_neurons.end(),
 		[&](SyncedNeuron *n) {
@@ -135,7 +135,7 @@ void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 
 //  std::cout << "Updating neuron utility \n";
 	std::for_each(
-		std::execution::par_unseq,
+		std::execution::unseq,
 		this->all_neurons.begin(),
 		this->all_neurons.end(),
 		[&](SyncedNeuron *n) {
@@ -149,7 +149,7 @@ void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_wei
 	this->introduce_targets(target);
 
 	std::for_each(
-		std::execution::par_unseq,
+		std::execution::unseq,
 		output_neurons.begin(),
 		output_neurons.end(),
 		[&](SyncedNeuron *n) {
@@ -158,7 +158,7 @@ void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_wei
 
 	for (int layer = this->all_neuron_layers.size() - 1; layer >= 0; layer--) {
 		std::for_each(
-			std::execution::par_unseq,
+			std::execution::unseq,
 			this->all_neuron_layers[layer].begin(),
 			this->all_neuron_layers[layer].end(),
 			[&](SyncedNeuron *n) {
@@ -166,7 +166,7 @@ void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_wei
 		});
 
 		std::for_each(
-			std::execution::par_unseq,
+			std::execution::unseq,
 			this->all_neuron_layers[layer].begin(),
 			this->all_neuron_layers[layer].end(),
 			[&](SyncedNeuron *n) {
@@ -176,17 +176,25 @@ void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_wei
 //  Calculate our credit
 
 	std::for_each(
-		std::execution::par_unseq,
-		output_synapses.begin(),
-		output_synapses.end(),
+		std::execution::unseq,
+		all_synapses.begin(),
+		all_synapses.end(),
 		[&](SyncedSynapse *s) {
 		s->update_utility();
 	});
 
+//	std::for_each(
+//		std::execution::unseq,
+//		output_synapses.begin(),
+//		output_synapses.end(),
+//		[&](SyncedSynapse *s) {
+//		s->update_utility();
+//	});
+
 
 
 	std::for_each(
-		std::execution::par_unseq,
+		std::execution::unseq,
 		all_synapses.begin(),
 		all_synapses.end(),
 		[&](SyncedSynapse *s) {
@@ -194,7 +202,7 @@ void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_wei
 	});
 
 //  std::for_each(
-//      std::execution::par_unseq,
+//      std::execution::unseq,
 //      output_synapses.begin(),
 //      output_synapses.end(),
 //      [&](SyncedSynapse *s) {
@@ -202,7 +210,7 @@ void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_wei
 //      });
 
 //  std::for_each(
-//      std::execution::par_unseq,
+//      std::execution::unseq,
 //      all_neurons.begin(),
 //      all_neurons.end(),
 //      [&](SyncedNeuron *s) {
@@ -214,7 +222,7 @@ void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_wei
 ////  Update our weights (based on either normal update or IDBD update
 	if(update_weight) {
 		std::for_each(
-			std::execution::par_unseq,
+			std::execution::unseq,
 			all_synapses.begin(),
 			all_synapses.end(),
 			[&](SyncedSynapse *s) {
@@ -252,7 +260,6 @@ void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_wei
 			}
 		}
 //      LTU_neuron_list.erase(it_n, LTU_neuron_list.end());
-	}
 
 
 
@@ -266,5 +273,6 @@ void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_wei
 	this->all_neurons.erase(it_n_2, this->all_neurons.end());
 //    std::cout << "All neurons deleted\n";
 //  }
+  }
 
 }

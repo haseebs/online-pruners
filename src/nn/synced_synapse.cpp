@@ -42,6 +42,8 @@ SyncedSynapse::SyncedSynapse(SyncedNeuron *input, SyncedNeuron *output, float w,
   utility_to_keep = 0.000001;
   disable_utility = false;
   this->trace_decay_rate = 0.999;
+  this->synapse_local_utility_trace = 0;
+  this->synapse_utility_to_distribute = 0;
 }
 //
 

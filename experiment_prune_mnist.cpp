@@ -55,7 +55,6 @@ int main(int argc, char *argv[]){
 	                                                        my_experiment->get_float_param("step_size"),
 	                                                        my_experiment->get_int_param("seed"),
 	                                                        14*14,
-	                                                        10,
 	                                                        0.001);
 
 	std::cout << "Step " << 0 << std::endl;
@@ -155,6 +154,8 @@ int main(int argc, char *argv[]){
 			std::cout << " Prediction\n";
 			print_vector(prediction);
 			std::cout << "Running error = " << running_error << std::endl;
+
+      //network.print_synapse_status();
 		}
 
 	total_steps++;

@@ -34,7 +34,6 @@ int main(int argc, char *argv[]){
 	                                                        0,
 	                                                        1,
 	                                                        14*14,
-	                                                        10,
 	                                                        0.001);
 
 

@@ -16,6 +16,9 @@ message( "Found environment variable SLURM_TMPDIR=$ENV{SLURM_TMPDIR}" )
 set(CMAKE_CXX_FLAGS "-O3 -ltbb -lpthread")
 find_package(Torch REQUIRED)
 
+add_subdirectory(pybind11)
+include_directories(pybind11/include/pybind11)
+
 add_executable(loading-test loading-test.cpp)
 
 add_executable(ModelExportTest src/utils.cpp include/utils.h include/experiment/Experiment.h src/experiment/Experiment.cpp include/experiment/Database.h
@@ -34,6 +37,10 @@ add_executable(MNISTPruning src/utils.cpp include/utils.h include/experiment/Exp
         include/nn/networks/pretrained_dense_network.h src/nn/networks/pretrained_dense_network.cpp
         include/json.hpp experiment_prune_mnist.cpp)
 
+pybind11_add_module(FlexibleNN src/utils.cpp include/utils.h include/experiment/Experiment.h src/experiment/Experiment.cpp include/experiment/Database.h
+        src/experiment/Database.cpp include/experiment/Metric.h src/experiment/Metric.cpp include/nn/utils.h src/nn/utils.cpp
+        pybind_interface/interface.cpp)
+
 
 #Cedar
 #target_link_libraries(FlexibleNN PRIVATE mariadb)
@@ -43,6 +50,9 @@ add_executable(MNISTPruning src/utils.cpp include/utils.h include/experiment/Exp
 #set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
 
 # For linking locally
+target_link_libraries(FlexibleNN PUBLIC tbb)
+target_link_libraries(FlexibleNN PUBLIC mariadb)
+
 target_link_libraries(MNISTPruning PUBLIC tbb)
 target_link_libraries(MNISTPruning PUBLIC mariadb)
 target_link_libraries(MNISTPruning PUBLIC torch)

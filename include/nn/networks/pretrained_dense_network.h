@@ -24,7 +24,6 @@ class PretrainedDenseNetwork : public SyncedNetwork {
                          float step_size,
                          int seed,
                          int no_of_input_features,
-                         int total_targets,
                          float utility_to_keep);
 
   ~PretrainedDenseNetwork();

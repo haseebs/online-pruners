@@ -80,10 +80,10 @@ void SyncedNetwork::set_input_values(std::vector<float> const &input_values) {
 }
 
 void SyncedNetwork::print_neuron_status() {
-  std::cout << "ID\tUtility\tAvg activation\n";
+  std::cout << "ID\tUtility\tinput\toutput\tlayer\n";
   for (auto it : this->all_neurons) {
     if (it->neuron_age > it->drinking_age) {
-      std::cout << it->id << "\t" << it->neuron_utility << std::endl;
+      std::cout << it->id << "\t" << it->neuron_utility << "\t" << it->is_input_neuron << "\t" << it->is_output_neuron << "\t" << it->layer_number << std::endl;
     }
   }
 }
