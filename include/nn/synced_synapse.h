@@ -43,6 +43,9 @@ class SyncedSynapse : public dynamic_elem {
   bool idbd;
   float trace_decay_rate = 0.9999;
   bool disable_utility; //Also disables pruning
+  float activation_trace;
+
+  void update_activation_trace();
 
   void set_connected_to_recurrence(bool);
 

@@ -57,6 +57,11 @@ class PretrainedDenseNetwork : public SyncedNetwork {
   void imprint_feature_random(float step_size, float meta_step_size);
 
   void prune_using_utility_propoagation();
+  void prune_using_trace_of_activation_magnitude();
+  void prune_using_weight_magnitude_pruner();
+  void prune_using_random_pruner();
+
+  void prune_weights(std::string pruner);
 };
 
 

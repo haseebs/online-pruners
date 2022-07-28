@@ -48,7 +48,7 @@ int main(int argc, char *argv[]){
 	try {
 		// Deserialize the ScriptModule from a file using torch::jit::load().
 		std::cout << "loading the torch model from: \t" << my_experiment->get_string_param("trained_model_path") << std::endl;
-		trained_model = torch::jit::load(my_experiment->get_string_param("trained_model_path"));
+		trained_model = torch::jit::load(my_experiment->get_string_param("trained_model_path") + std::to_string(my_experiment->get_int_param("seed")) + ".pt");
 	}
 	catch (const c10::Error& e) {
 		std::cerr << "error loading the model\n";
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]){
 
 	int total_data_points = 60000;
 	int total_steps = 0;
-	bool training_phase = true;
+	bool training_phase = false;
 
   std::uniform_int_distribution<int> index_sampler(0, total_data_points - 1);
 
@@ -123,6 +123,7 @@ int main(int argc, char *argv[]){
 
 
 		network.backward(y, training_phase);
+    network.prune_weights(my_experiment->get_string_param("pruner_type"));
 		if (i % 100 == 0) {
 			std::vector<std::string> error;
 			error.push_back(std::to_string(i));

@@ -37,16 +37,17 @@ def test(cuda, model, test_loader):
     for data, target in test_loader:
         if cuda:
             data, target = data.cuda(), target.cuda()
-        data, target = Variable(data, volatile=True), Variable(target)
-        output = model(data)
-        test_loss += F.mse_loss(
-            output,
-            F.one_hot(target, num_classes=10).type(torch.FloatTensor),
-            size_average=False,
-        ).data
-        # test_loss += F.nll_loss(output, target, size_average=False).data
-        pred = output.data.max(1, keepdim=True)[1]
-        correct += pred.eq(target.data.view_as(pred)).long().cpu().sum()
+        with torch.no_grad():
+            data, target = Variable(data), Variable(target)
+            output = model(data)
+            test_loss += F.mse_loss(
+                output,
+                F.one_hot(target, num_classes=10).type(torch.FloatTensor),
+                size_average=False,
+            ).data
+            # test_loss += F.nll_loss(output, target, size_average=False).data
+            pred = output.data.max(1, keepdim=True)[1]
+            correct += pred.eq(target.data.view_as(pred)).long().cpu().sum()
 
     test_loss /= len(test_loader.dataset)
     print(
@@ -177,7 +178,7 @@ def main():
     if exp.get_int_param("cuda"):
         sample = sample
     traced_script_module = torch.jit.trace(model, sample)
-    traced_script_module.save("trained_models/mnist_pretrained.pt")
+    traced_script_module.save("trained_models/mnist_pretrained_" + str(exp.get_int_param("seed")) + ".pt")
 
 
 if __name__ == "__main__":
