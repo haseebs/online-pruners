@@ -165,21 +165,40 @@ void SyncedNeuron::propagate_error() {
  * Mark synapses and neurons for deletion. Synapses will only get deleted if its age is > 70k.
  * SyncedNeurons will only be deleted if there are no outgoing synapses (and it's not an output neuron of course!)
  */
+//void SyncedNeuron::mark_useless_weights() {
+//  std::uniform_real_distribution<float> dist(0, 1);
+//
+//  if (this->neuron_age > this->drinking_age) {
+//    for (auto &it : this->outgoing_synapses) {
+//
+//      if (it->output_neuron->neuron_age > it->output_neuron->drinking_age
+//          && it->synapse_utility < it->utility_to_keep && !it->disable_utility) {
+//        if (dist(gen) > this->mark_useless_prob)
+//          it->is_useless = true;
+//      }
+//    }
+//  }
+//
+////  if this current neuron has no outgoing synapses and is not an output or input neuron,
+////  delete it a
+////  nd its incoming synapses.
+//  if (this->incoming_synapses.empty() && !this->is_input_neuron && !this->is_output_neuron) {
+//    this->useless_neuron = true;
+//    for (auto it : this->outgoing_synapses)
+//      it->is_useless = true;
+//  }
+//
+//
+//
+//  if (this->outgoing_synapses.empty() && !this->is_output_neuron && !this->is_input_neuron) {
+//    this->useless_neuron = true;
+//    for (auto it : this->incoming_synapses)
+//      it->is_useless = true;
+//  }
+//}
+
+
 void SyncedNeuron::mark_useless_weights() {
-//  if (this->is_output_neuron || this->is_input_neuron)
-//    return;
-  std::uniform_real_distribution<float> dist(0, 1);
-
-  if (this->neuron_age > this->drinking_age) {
-    for (auto &it : this->outgoing_synapses) {
-
-      if (it->output_neuron->neuron_age > it->output_neuron->drinking_age
-          && it->synapse_utility < it->utility_to_keep && !it->disable_utility) {
-        if (dist(gen) > this->mark_useless_prob)
-          it->is_useless = true;
-      }
-    }
-  }
 
 //  if this current neuron has no outgoing synapses and is not an output or input neuron,
 //  delete it a
@@ -191,11 +210,6 @@ void SyncedNeuron::mark_useless_weights() {
   }
 
 
-//  if (this->outgoing_synapses.empty() && !this->is_output_neuron && !this->is_input_neuron) {
-//    this->useless_neuron = true;
-//    for (auto it : this->incoming_synapses)
-//      it->is_useless = true;
-//  }
 
   if (this->outgoing_synapses.empty() && !this->is_output_neuron && !this->is_input_neuron) {
     this->useless_neuron = true;

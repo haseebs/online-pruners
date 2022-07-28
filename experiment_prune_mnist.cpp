@@ -31,9 +31,13 @@ int main(int argc, char *argv[]){
 	Experiment *my_experiment = new ExperimentJSON(argc, argv);
 
 	Metric error_metric = Metric(my_experiment->database_name, "error_table",
-	                             std::vector < std::string > {"step", "run", "error", "accuracy"},
-	                             std::vector < std::string > {"int", "int", "real", "real"},
+	                             std::vector < std::string > {"step", "run", "error", "accuracy", "n_params"},
+	                             std::vector < std::string > {"int", "int", "real", "real", "int"},
 	                             std::vector < std::string > {"step", "run"});
+	Metric state_metric = Metric(my_experiment->database_name, "state_metric",
+	                             std::vector < std::string > {"step", "run", "layer_no", "nparams"},
+	                             std::vector < std::string > {"int", "int", "int", "int"},
+	                             std::vector < std::string > {"step", "run", "layer_no"});
 	Metric error_metric_test = Metric(my_experiment->database_name, "test_set",
 	                                  std::vector < std::string > {"step", "run", "accuracy", "mode"},
 	                                  std::vector < std::string > {"int", "int", "real", "int"},
@@ -55,18 +59,15 @@ int main(int argc, char *argv[]){
 	                                                        my_experiment->get_float_param("step_size"),
 	                                                        my_experiment->get_int_param("seed"),
 	                                                        14*14,
-	                                                        0.001);
+	                                                        my_experiment->get_float_param("utility_to_keep"),
+                                                          my_experiment->get_float_param("perc_prune"),
+                                                          my_experiment->get_int_param("min_synapses_to_keep"),
+                                                          my_experiment->get_int_param("prune_interval"));
 
-	std::cout << "Step " << 0 << std::endl;
-
-	std::cout << "Network confing\n";
-	std::cout << "No\tSize\tSynapses\tOutput\n";
-	for(int layer_no = 0; layer_no < network.all_neuron_layers.size(); layer_no++)
-		std::cout <<  layer_no << "\t" << network.all_neuron_layers[layer_no].size() << "\t" << network.all_synapses.size() << "\t\t" << network.output_synapses.size() <<  std::endl;
-	std::cout <<  1000 << "\t" << network.output_neurons.size() << "\t" << network.all_synapses.size() << "\t\t" << network.output_synapses.size() <<  std::endl;
-	//TODO save the scaled mnist
 	std::vector<std::vector<std::string> > error_logger;
+	std::vector<std::vector<std::string> > state_logger;
 	std::vector<std::vector<std::string> > error_logger_test;
+
 
 	auto train_dataset =
 		torch::data::datasets::MNIST("data/")
@@ -128,23 +129,39 @@ int main(int argc, char *argv[]){
 			error.push_back(std::to_string(my_experiment->get_int_param("run")));
 			error.push_back(std::to_string(running_error));
 			error.push_back(std::to_string(accuracy));
+			error.push_back(std::to_string(network.all_synapses.size()));
 			error_logger.push_back(error);
 
-		}
-		if(i % 10000 == 0) {
-			std::cout << error_logger.size() << std::endl;
-			error_metric.add_values(error_logger);
-			error_logger.clear();
 		}
 
 		if (i % 1000 == 0) {
 			std::cout << "Step " << i << std::endl;
-
 			std::cout << "Network confing\n";
 			std::cout << "No\tSize\tSynapses\tOutput\n";
-			for(int layer_no = 0; layer_no < network.all_neuron_layers.size(); layer_no++)
-				std::cout <<  layer_no << "\t" << network.all_neuron_layers[layer_no].size() << "\t" << network.all_synapses.size() << "\t\t" << network.output_synapses.size() <<  std::endl;
-      std::cout <<  1000 << "\t" << network.output_neurons.size() << "\t" << network.all_synapses.size() << "\t\t" << network.output_synapses.size() <<  std::endl;
+
+
+			for(int layer_no = 0; layer_no < network.all_neuron_layers.size(); layer_no++){
+        int n_layer_synapses = 0;
+        for (auto n : network.all_neuron_layers[layer_no])
+          n_layer_synapses += n->incoming_synapses.size();
+        std::vector<std::string> state;
+        state.push_back(std::to_string(i));
+        state.push_back(std::to_string(my_experiment->get_int_param("run")));
+        state.push_back(std::to_string(layer_no));
+        state.push_back(std::to_string(n_layer_synapses));
+        state_logger.push_back(state);
+				std::cout <<  layer_no << "\t" << network.all_neuron_layers[layer_no].size() << "\t"<< n_layer_synapses << "/" << network.all_synapses.size() << "\t\t" << network.output_synapses.size() <<  std::endl;
+      }
+      int n_layer_synapses = 0;
+      for (auto n : network.output_neurons)
+        n_layer_synapses += n->incoming_synapses.size();
+      std::vector<std::string> state;
+      state.push_back(std::to_string(i));
+      state.push_back(std::to_string(my_experiment->get_int_param("run")));
+      state.push_back(std::to_string(1000));
+      state.push_back(std::to_string(n_layer_synapses));
+      state_logger.push_back(state);
+      std::cout <<  1000 << "\t" << network.output_neurons.size() << "\t" << n_layer_synapses << "/" << network.all_synapses.size() << "\t\t" << network.output_synapses.size() <<  std::endl;
 
 			std::cout << "Running accuracy = " << accuracy << std::endl;
 			std::cout << "GT " << y_index <<  " Pred = " << argmax(prediction) << std::endl;
@@ -158,8 +175,19 @@ int main(int argc, char *argv[]){
       //network.print_synapse_status();
 		}
 
+
+		if(i % 10000 == 0) {
+			std::cout << error_logger.size() << std::endl;
+			error_metric.add_values(error_logger);
+			state_metric.add_values(state_logger);
+			error_logger.clear();
+			state_logger.clear();
+		}
+
 	total_steps++;
 	}
 	error_metric.add_values(error_logger);
-	error_logger.clear();
+  state_metric.add_values(state_logger);
+  error_logger.clear();
+  state_logger.clear();
 }

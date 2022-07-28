@@ -16,6 +16,9 @@ class PretrainedDenseNetwork : public SyncedNetwork {
 
  public:
 
+  float perc_prune;
+  int min_synapses_to_keep;
+  int prune_interval;
   std::vector<SyncedSynapse *> active_synapses;
 
   std::vector<std::vector<SyncedNeuron *>> all_neuron_layers;
@@ -24,7 +27,10 @@ class PretrainedDenseNetwork : public SyncedNetwork {
                          float step_size,
                          int seed,
                          int no_of_input_features,
-                         float utility_to_keep);
+                         float utility_to_keep,
+                         float perc_prune,
+                         int min_synapses_to_keep,
+                         int prune_interval);
 
   ~PretrainedDenseNetwork();
 
@@ -49,6 +55,8 @@ class PretrainedDenseNetwork : public SyncedNetwork {
   void imprint_feature(int index, std::vector<float> feature, float step_size, float meta_step_size, int target);
 
   void imprint_feature_random(float step_size, float meta_step_size);
+
+  void prune_using_utility_propoagation();
 };
 
 

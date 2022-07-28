@@ -11,10 +11,15 @@ PretrainedDenseNetwork::PretrainedDenseNetwork(torch::jit::script::Module traine
                                                float step_size,
                                                int seed,
                                                int no_of_input_features,
-                                               float utility_to_keep) {
+                                               float utility_to_keep,
+                                               float perc_prune,
+                                               int min_synapses_to_keep,
+                                               int prune_interval) {
 
 	this->mt.seed(seed);
-  //TODO make sing;le threaded
+  this->perc_prune = perc_prune;
+  this->min_synapses_to_keep = min_synapses_to_keep;
+  this->prune_interval = prune_interval;
 
 	for (int i = 0; i < no_of_input_features; i++) {
 		SyncedNeuron *n = new LinearSyncedNeuron(true, false);
@@ -53,6 +58,7 @@ PretrainedDenseNetwork::PretrainedDenseNetwork(torch::jit::script::Module traine
 				                                     n,
 				                                     param_group.index({neuron_idx, synapse_idx}).item<float>(),
 				                                     step_size);
+        new_synapse->set_utility_to_keep(utility_to_keep);
 				this->all_synapses.push_back(new_synapse);
 			}
 
@@ -72,6 +78,37 @@ PretrainedDenseNetwork::PretrainedDenseNetwork(torch::jit::script::Module traine
 PretrainedDenseNetwork::~PretrainedDenseNetwork() {
 
 }
+
+void PretrainedDenseNetwork::prune_using_utility_propoagation() {
+  if (all_synapses.size() < this->min_synapses_to_keep)
+    return;
+
+  int total_removals = int(all_synapses.size() * perc_prune);
+  if (all_synapses.size() - total_removals < this->min_synapses_to_keep)
+    total_removals = all_synapses.size() - this->min_synapses_to_keep;
+
+  std::cout << "Removing " << total_removals << " synapses" << std::endl;
+  std::vector<SyncedSynapse *> all_synapses_copy(this->all_synapses);
+
+  std::nth_element(all_synapses_copy.begin(),
+                   all_synapses_copy.begin() + total_removals,
+                   all_synapses_copy.end(),
+                   []( auto a, auto b ) {
+			return a->synapse_utility < b->synapse_utility;
+		} );
+  //std::sort(all_synapses_copy.begin(),
+  //          all_synapses_copy.end(),
+  //          []( auto a, auto b ) {
+  //    //std::cout << a->id << ":" << b->id;
+  //    //std::cout << "\t" << a->synapse_utility << ":" << b->synapse_utility <<std::endl;
+	//		return a->synapse_utility < b->synapse_utility;
+	//	} );
+
+  //TODO check to see if this vector is copy of addresses or copy of values
+  for (int i = 0; i < total_removals; i++)
+    all_synapses_copy[i]->is_useless = true;
+}
+
 
 void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 
@@ -183,16 +220,6 @@ void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_wei
 		s->update_utility();
 	});
 
-//	std::for_each(
-//		std::execution::unseq,
-//		output_synapses.begin(),
-//		output_synapses.end(),
-//		[&](SyncedSynapse *s) {
-//		s->update_utility();
-//	});
-
-
-
 	std::for_each(
 		std::execution::unseq,
 		all_synapses.begin(),
@@ -201,24 +228,6 @@ void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_wei
 		s->assign_credit();
 	});
 
-//  std::for_each(
-//      std::execution::unseq,
-//      output_synapses.begin(),
-//      output_synapses.end(),
-//      [&](SyncedSynapse *s) {
-//        s->set_reinforce();
-//      });
-
-//  std::for_each(
-//      std::execution::unseq,
-//      all_neurons.begin(),
-//      all_neurons.end(),
-//      [&](SyncedNeuron *s) {
-//        s->update_reinforcement();
-//      });
-
-
-//
 ////  Update our weights (based on either normal update or IDBD update
 	if(update_weight) {
 		std::for_each(
@@ -229,7 +238,9 @@ void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_wei
 			s->update_weight();
 		});
 	}
-	if (this->time_step % 40 == 0) {
+	if (this->time_step > this->prune_interval && this->time_step % this->prune_interval == 0) {
+    this->prune_using_utility_propoagation();
+
 		std::for_each(
 			this->all_neurons.begin(),
 			this->all_neurons.end(),
@@ -271,8 +282,6 @@ void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_wei
 
 	auto it_n_2 = std::remove_if(this->all_neurons.begin(), this->all_neurons.end(), to_delete_synced_n);
 	this->all_neurons.erase(it_n_2, this->all_neurons.end());
-//    std::cout << "All neurons deleted\n";
-//  }
   }
 
 }

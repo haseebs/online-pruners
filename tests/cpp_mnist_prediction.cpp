@@ -34,7 +34,10 @@ int main(int argc, char *argv[]){
 	                                                        0,
 	                                                        1,
 	                                                        14*14,
-	                                                        0.001);
+	                                                        0.0,
+                                                          0.0,
+                                                          0,
+                                                          10000);
 
 
 	std::cout << "Network confing\n";

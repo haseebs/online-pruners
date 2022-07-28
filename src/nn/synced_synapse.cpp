@@ -80,7 +80,8 @@ void SyncedSynapse::update_utility() {
             / (this->output_neuron->sum_of_utility_traces + 1e-10);
     if (this->synapse_utility > this->utility_to_keep) {
       this->synapse_utility_to_distribute = this->synapse_utility - this->utility_to_keep;
-      this->synapse_utility = this->utility_to_keep;
+      //TODO uncomment to keep utility
+      //this->synapse_utility = this->utility_to_keep;
     } else {
       this->synapse_utility_to_distribute = 0;
     }
