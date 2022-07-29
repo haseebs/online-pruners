@@ -109,6 +109,8 @@ int main(int argc, char *argv[]){
 
 		network.forward(x);
 		auto prediction = network.read_output_values();
+    if (my_experiment->get_string_param("pruner_type") == "dropout_utility_estimator")
+      network.update_dropout_utility_estimates(x, prediction, my_experiment->get_float_param("dropout_perc"));
 		float error = 0;
 		for(int i = 0; i<prediction.size(); i++) {
 			error += (prediction[i]-y[i])*(prediction[i]-y[i]);

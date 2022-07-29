@@ -66,7 +66,8 @@ void SyncedNeuron::update_value(int time_step) {
 //  Age our neuron like a fine wine and set the next values of our neuron.
   for (auto &it : this->incoming_synapses) {
     it->age++;
-    this->value_before_firing += it->weight * it->input_neuron->value;
+    if (!it->is_dropped_out)
+      this->value_before_firing += it->weight * it->input_neuron->value;
   }
 }
 

@@ -44,6 +44,8 @@ class SyncedSynapse : public dynamic_elem {
   float trace_decay_rate = 0.9999;
   bool disable_utility; //Also disables pruning
   float activation_trace;
+  bool is_dropped_out;
+  float dropout_utility_estimate;
 
   void update_activation_trace();
 

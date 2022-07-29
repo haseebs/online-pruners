@@ -75,8 +75,63 @@ PretrainedDenseNetwork::PretrainedDenseNetwork(torch::jit::script::Module traine
 
 }
 
-PretrainedDenseNetwork::~PretrainedDenseNetwork() {
+PretrainedDenseNetwork::~PretrainedDenseNetwork() {}
 
+void PretrainedDenseNetwork::update_dropout_utility_estimates(std::vector<float> inp,
+                                                              std::vector<float> normal_predictions,
+                                                              float dropout_perc){
+  int total_dropped_synapses = this->all_synapses.size() * dropout_perc;
+  if (total_dropped_synapses < 1)
+    total_dropped_synapses = 1;
+
+	std::vector<SyncedSynapse *> synapses_to_drop;
+	std::sample(this->all_synapses.begin(),
+	            this->all_synapses.end(),
+	            std::back_inserter(synapses_to_drop),
+	            total_dropped_synapses,
+	            this->mt);
+
+	for (int i = 0; i < total_dropped_synapses; i++)
+		synapses_to_drop[i]->is_dropped_out= true;
+
+  this->forward(inp);
+  auto dropout_predictions = this->read_output_values();
+
+  float sum_of_differences = 0;
+	for (int i = 0; i < dropout_predictions.size(); i++)
+		sum_of_differences += fabs(normal_predictions[i] - dropout_predictions[i]);
+
+	for (int i = 0; i < total_dropped_synapses; i++){
+    synapses_to_drop[i]->dropout_utility_estimate = 0.999 * synapses_to_drop[i]->dropout_utility_estimate + 0.001 * sum_of_differences;
+		synapses_to_drop[i]->is_dropped_out = false;
+  }
+}
+
+
+void PretrainedDenseNetwork::prune_using_dropout_utility_estimator() {
+  //TODO need a good way to make sure that the estimates are reasonably accurate?
+  //maybe use another pruner at the beginning?
+	if (all_synapses.size() < this->min_synapses_to_keep)
+		return;
+
+	//int total_removals = int(all_synapses.size() * perc_prune);
+	//if (all_synapses.size() - total_removals < this->min_synapses_to_keep)
+	//	total_removals = all_synapses.size() - this->min_synapses_to_keep;
+  int total_removals = 1;
+
+	//std::cout << "Removing " << total_removals << " synapses" << std::endl;
+	std::vector<SyncedSynapse *> all_synapses_copy(this->all_synapses);
+
+	std::nth_element(all_synapses_copy.begin(),
+	                 all_synapses_copy.begin() + total_removals,
+	                 all_synapses_copy.end(),
+	                 []( auto a, auto b ) {
+		return fabs(a->dropout_utility_estimate) < fabs(b->dropout_utility_estimate);
+	} );
+
+	//TODO check to see if this vector is copy of addresses or copy of values
+	for (int i = 0; i < total_removals; i++)
+		all_synapses_copy[i]->is_useless = true;
 }
 
 void PretrainedDenseNetwork::prune_using_trace_of_activation_magnitude() {
@@ -103,6 +158,7 @@ void PretrainedDenseNetwork::prune_using_trace_of_activation_magnitude() {
 		all_synapses_copy[i]->is_useless = true;
 }
 
+
 void PretrainedDenseNetwork::prune_using_weight_magnitude_pruner() {
 	if (all_synapses.size() < this->min_synapses_to_keep)
 		return;
@@ -123,8 +179,10 @@ void PretrainedDenseNetwork::prune_using_weight_magnitude_pruner() {
 	} );
 
 	//TODO check to see if this vector is copy of addresses or copy of values
-	for (int i = 0; i < total_removals; i++)
+	for (int i = 0; i < total_removals; i++){
+    //std::cout << "removing: " << all_synapses_copy[i]->id<< std::endl;
 		all_synapses_copy[i]->is_useless = true;
+  }
 }
 
 void PretrainedDenseNetwork::prune_using_random_pruner() {
@@ -178,8 +236,10 @@ void PretrainedDenseNetwork::prune_using_utility_propoagation() {
 	//	} );
 
 	//TODO check to see if this vector is copy of addresses or copy of values
-	for (int i = 0; i < total_removals; i++)
+	for (int i = 0; i < total_removals; i++){
+    //std::cout << "removing: " << all_synapses_copy[i]->id<< std::endl;
 		all_synapses_copy[i]->is_useless = true;
+  }
 }
 
 
@@ -333,6 +393,8 @@ void PretrainedDenseNetwork::prune_weights(std::string pruner){
       this->prune_using_weight_magnitude_pruner();
     else if (pruner == "activation_trace")
       this->prune_using_trace_of_activation_magnitude();
+    else if (pruner == "dropout_utility_estimator")
+      this->prune_using_dropout_utility_estimator();
     else if (pruner != "none"){
       std::cout << "Invalid pruner specified" << std::endl;
       exit(1);

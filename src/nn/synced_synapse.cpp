@@ -45,6 +45,8 @@ SyncedSynapse::SyncedSynapse(SyncedNeuron *input, SyncedNeuron *output, float w,
   this->synapse_local_utility_trace = 0;
   this->synapse_utility_to_distribute = 0;
   this->activation_trace = 0;
+  this->is_dropped_out = false;
+  this->dropout_utility_estimate = 0;
 }
 //
 

@@ -56,6 +56,8 @@ class PretrainedDenseNetwork : public SyncedNetwork {
 
   void imprint_feature_random(float step_size, float meta_step_size);
 
+  void update_dropout_utility_estimates(std::vector<float> inp, std::vector<float> normal_predictions, float dropout_perc);
+  void prune_using_dropout_utility_estimator();
   void prune_using_utility_propoagation();
   void prune_using_trace_of_activation_magnitude();
   void prune_using_weight_magnitude_pruner();
