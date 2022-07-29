@@ -60,9 +60,9 @@ int main(int argc, char *argv[]){
 	                                                        my_experiment->get_int_param("seed"),
 	                                                        14*14,
 	                                                        my_experiment->get_float_param("utility_to_keep"),
-                                                          my_experiment->get_float_param("perc_prune"),
-                                                          my_experiment->get_int_param("min_synapses_to_keep"),
-                                                          my_experiment->get_int_param("prune_interval"));
+	                                                        my_experiment->get_float_param("perc_prune"),
+	                                                        my_experiment->get_int_param("min_synapses_to_keep"),
+	                                                        my_experiment->get_int_param("prune_interval"));
 
 	std::vector<std::vector<std::string> > error_logger;
 	std::vector<std::vector<std::string> > state_logger;
@@ -97,7 +97,7 @@ int main(int argc, char *argv[]){
 	int total_steps = 0;
 	bool training_phase = false;
 
-  std::uniform_int_distribution<int> index_sampler(0, total_data_points - 1);
+	std::uniform_int_distribution<int> index_sampler(0, total_data_points - 1);
 
 	for (int i = 0; i < my_experiment->get_int_param("steps"); i++) {
 		total_steps++;
@@ -109,8 +109,8 @@ int main(int argc, char *argv[]){
 
 		network.forward(x);
 		auto prediction = network.read_output_values();
-    if (my_experiment->get_string_param("pruner_type") == "dropout_utility_estimator")
-      network.update_dropout_utility_estimates(x, prediction, my_experiment->get_float_param("dropout_perc"));
+		if (my_experiment->get_string_param("pruner_type") == "dropout_utility_estimator")
+			network.update_dropout_utility_estimates(x, prediction, my_experiment->get_float_param("dropout_perc"));
 		float error = 0;
 		for(int i = 0; i<prediction.size(); i++) {
 			error += (prediction[i]-y[i])*(prediction[i]-y[i]);
@@ -125,7 +125,7 @@ int main(int argc, char *argv[]){
 
 
 		network.backward(y, training_phase);
-    network.prune_weights(my_experiment->get_string_param("pruner_type"));
+		network.prune_weights(my_experiment->get_string_param("pruner_type"));
 		if (i % 100 == 0) {
 			std::vector<std::string> error;
 			error.push_back(std::to_string(i));
@@ -143,28 +143,28 @@ int main(int argc, char *argv[]){
 			std::cout << "No\tSize\tSynapses\tOutput\n";
 
 
-			for(int layer_no = 0; layer_no < network.all_neuron_layers.size(); layer_no++){
-        int n_layer_synapses = 0;
-        for (auto n : network.all_neuron_layers[layer_no])
-          n_layer_synapses += n->incoming_synapses.size();
-        std::vector<std::string> state;
-        state.push_back(std::to_string(i));
-        state.push_back(std::to_string(my_experiment->get_int_param("run")));
-        state.push_back(std::to_string(layer_no));
-        state.push_back(std::to_string(n_layer_synapses));
-        state_logger.push_back(state);
+			for(int layer_no = 0; layer_no < network.all_neuron_layers.size(); layer_no++) {
+				int n_layer_synapses = 0;
+				for (auto n : network.all_neuron_layers[layer_no])
+					n_layer_synapses += n->incoming_synapses.size();
+				std::vector<std::string> state;
+				state.push_back(std::to_string(i));
+				state.push_back(std::to_string(my_experiment->get_int_param("run")));
+				state.push_back(std::to_string(layer_no));
+				state.push_back(std::to_string(n_layer_synapses));
+				state_logger.push_back(state);
 				std::cout <<  layer_no << "\t" << network.all_neuron_layers[layer_no].size() << "\t"<< n_layer_synapses << "/" << network.all_synapses.size() << "\t\t" << network.output_synapses.size() <<  std::endl;
-      }
-      int n_layer_synapses = 0;
-      for (auto n : network.output_neurons)
-        n_layer_synapses += n->incoming_synapses.size();
-      std::vector<std::string> state;
-      state.push_back(std::to_string(i));
-      state.push_back(std::to_string(my_experiment->get_int_param("run")));
-      state.push_back(std::to_string(1000));
-      state.push_back(std::to_string(n_layer_synapses));
-      state_logger.push_back(state);
-      std::cout <<  1000 << "\t" << network.output_neurons.size() << "\t" << n_layer_synapses << "/" << network.all_synapses.size() << "\t\t" << network.output_synapses.size() <<  std::endl;
+			}
+			int n_layer_synapses = 0;
+			for (auto n : network.output_neurons)
+				n_layer_synapses += n->incoming_synapses.size();
+			std::vector<std::string> state;
+			state.push_back(std::to_string(i));
+			state.push_back(std::to_string(my_experiment->get_int_param("run")));
+			state.push_back(std::to_string(1000));
+			state.push_back(std::to_string(n_layer_synapses));
+			state_logger.push_back(state);
+			std::cout <<  1000 << "\t" << network.output_neurons.size() << "\t" << n_layer_synapses << "/" << network.all_synapses.size() << "\t\t" << network.output_synapses.size() <<  std::endl;
 
 			std::cout << "Running accuracy = " << accuracy << std::endl;
 			std::cout << "GT " << y_index <<  " Pred = " << argmax(prediction) << std::endl;
@@ -175,7 +175,7 @@ int main(int argc, char *argv[]){
 			print_vector(prediction);
 			std::cout << "Running error = " << running_error << std::endl;
 
-      //network.print_synapse_status();
+			//network.print_synapse_status();
 		}
 
 
@@ -187,10 +187,10 @@ int main(int argc, char *argv[]){
 			state_logger.clear();
 		}
 
-	total_steps++;
+		total_steps++;
 	}
 	error_metric.add_values(error_logger);
-  state_metric.add_values(state_logger);
-  error_logger.clear();
-  state_logger.clear();
+	state_metric.add_values(state_logger);
+	error_logger.clear();
+	state_logger.clear();
 }
