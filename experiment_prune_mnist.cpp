@@ -31,8 +31,8 @@ int main(int argc, char *argv[]){
 	Experiment *my_experiment = new ExperimentJSON(argc, argv);
 
 	Metric error_metric = Metric(my_experiment->database_name, "error_table",
-	                             std::vector < std::string > {"step", "run", "error", "accuracy", "n_params"},
-	                             std::vector < std::string > {"int", "int", "real", "real", "int"},
+	                             std::vector < std::string > {"step", "run", "error", "accuracy", "step_acc", "n_params"},
+	                             std::vector < std::string > {"int", "int", "real", "real", "real", "int"},
 	                             std::vector < std::string > {"step", "run"});
 	Metric state_metric = Metric(my_experiment->database_name, "state_metric",
 	                             std::vector < std::string > {"step", "run", "layer_no", "nparams"},
@@ -110,7 +110,8 @@ int main(int argc, char *argv[]){
 		network.forward(x);
 		auto prediction = network.read_output_values();
 		if (my_experiment->get_string_param("pruner_type") == "dropout_utility_estimator")
-			network.update_dropout_utility_estimates(x, prediction, my_experiment->get_float_param("dropout_perc"));
+      for (int k = 0; k < my_experiment->get_int_param("dropout_estimator_itrations"); k++)
+        network.update_dropout_utility_estimates(x, prediction, my_experiment->get_float_param("dropout_perc"));
 		float error = 0;
 		for(int i = 0; i<prediction.size(); i++) {
 			error += (prediction[i]-y[i])*(prediction[i]-y[i]);
@@ -132,6 +133,7 @@ int main(int argc, char *argv[]){
 			error.push_back(std::to_string(my_experiment->get_int_param("run")));
 			error.push_back(std::to_string(running_error));
 			error.push_back(std::to_string(accuracy));
+			error.push_back(std::to_string(argmax(prediction) == y_index));
 			error.push_back(std::to_string(network.all_synapses.size()));
 			error_logger.push_back(error);
 
