@@ -31,8 +31,8 @@ int main(int argc, char *argv[]){
 	Experiment *my_experiment = new ExperimentJSON(argc, argv);
 
 	Metric error_metric = Metric(my_experiment->database_name, "error_table",
-	                             std::vector < std::string > {"step", "run", "error", "accuracy", "step_acc", "n_params"},
-	                             std::vector < std::string > {"int", "int", "real", "real", "real", "int"},
+	                             std::vector < std::string > {"step", "run", "error", "accuracy", "step_acc", "n_params", "param_schedule"},
+	                             std::vector < std::string > {"int", "int", "real", "real", "real", "int", "int"},
 	                             std::vector < std::string > {"step", "run"});
 	Metric state_metric = Metric(my_experiment->database_name, "state_metric",
 	                             std::vector < std::string > {"step", "run", "layer_no", "nparams"},
@@ -62,7 +62,9 @@ int main(int argc, char *argv[]){
 	                                                        my_experiment->get_float_param("utility_to_keep"),
 	                                                        my_experiment->get_float_param("perc_prune"),
 	                                                        my_experiment->get_int_param("min_synapses_to_keep"),
-	                                                        my_experiment->get_int_param("prune_interval"));
+	                                                        my_experiment->get_int_param("prune_interval"),
+                                                          my_experiment->get_int_param("start_pruning_at"),
+                                                          my_experiment->get_float_param("trace_decay_rate"));
 
 	std::vector<std::vector<std::string> > error_logger;
 	std::vector<std::vector<std::string> > state_logger;
@@ -73,7 +75,7 @@ int main(int argc, char *argv[]){
 		torch::data::datasets::MNIST("data/")
 		.map(torch::data::transforms::Normalize<>(0.1307, 0.2801))
 		.map(torch::data::transforms::Stack<>());
-	int total_training_items = 60000;
+	int total_training_items = my_experiment->get_int_param("training_points");
 	std::vector<std::vector<float> > images;
 	std::vector<std::vector<float> > targets;
 
@@ -93,9 +95,11 @@ int main(int argc, char *argv[]){
 
 	std::mt19937 mt(my_experiment->get_int_param("seed"));
 
-	int total_data_points = 60000;
+	int total_data_points = my_experiment->get_int_param("training_points");
 	int total_steps = 0;
-	bool training_phase = false;
+	bool training_phase = true;
+
+  int total_initial_synapses = network.all_synapses.size();
 
 	std::uniform_int_distribution<int> index_sampler(0, total_data_points - 1);
 
@@ -110,7 +114,7 @@ int main(int argc, char *argv[]){
 		network.forward(x);
 		auto prediction = network.read_output_values();
 		if (my_experiment->get_string_param("pruner_type") == "dropout_utility_estimator")
-      for (int k = 0; k < my_experiment->get_int_param("dropout_estimator_itrations"); k++)
+      for (int k = 0; k < my_experiment->get_int_param("dropout_estimator_iterations"); k++)
         network.update_dropout_utility_estimates(x, prediction, my_experiment->get_float_param("dropout_perc"));
 		float error = 0;
 		for(int i = 0; i<prediction.size(); i++) {
@@ -126,7 +130,7 @@ int main(int argc, char *argv[]){
 
 
 		network.backward(y, training_phase);
-		network.prune_weights(my_experiment->get_string_param("pruner_type"));
+    network.prune_weights(my_experiment->get_string_param("pruner_type"));
 		if (i % 100 == 0) {
 			std::vector<std::string> error;
 			error.push_back(std::to_string(i));
@@ -135,8 +139,8 @@ int main(int argc, char *argv[]){
 			error.push_back(std::to_string(accuracy));
 			error.push_back(std::to_string(argmax(prediction) == y_index));
 			error.push_back(std::to_string(network.all_synapses.size()));
+			error.push_back(std::to_string(network.get_current_synapse_schedule()));
 			error_logger.push_back(error);
-
 		}
 
 		if (i % 1000 == 0) {

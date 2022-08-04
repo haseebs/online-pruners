@@ -51,7 +51,7 @@ SyncedSynapse::SyncedSynapse(SyncedNeuron *input, SyncedNeuron *output, float w,
 //
 
 void SyncedSynapse::update_activation_trace() {
-	this->activation_trace = 0.999 * this->activation_trace + 0.001 * fabs(this->input_neuron->value * this->weight);
+	this->activation_trace = this->trace_decay_rate * this->activation_trace + (1-trace_decay_rate) * fabs(this->input_neuron->value * this->weight);
 }
 
 void SyncedSynapse::set_utility_to_keep(float util) {

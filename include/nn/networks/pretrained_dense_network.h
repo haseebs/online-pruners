@@ -19,6 +19,9 @@ class PretrainedDenseNetwork : public SyncedNetwork {
   float perc_prune;
   int min_synapses_to_keep;
   int prune_interval;
+  int start_pruning_at;
+  int total_initial_synapses;
+  float trace_decay_rate;
   std::vector<SyncedSynapse *> active_synapses;
 
   std::vector<std::vector<SyncedNeuron *>> all_neuron_layers;
@@ -30,7 +33,9 @@ class PretrainedDenseNetwork : public SyncedNetwork {
                          float utility_to_keep,
                          float perc_prune,
                          int min_synapses_to_keep,
-                         int prune_interval);
+                         int prune_interval,
+                         int start_pruning_at,
+                         float trace_decay_rate);
 
   ~PretrainedDenseNetwork();
 
@@ -64,6 +69,8 @@ class PretrainedDenseNetwork : public SyncedNetwork {
   void prune_using_random_pruner();
 
   void prune_weights(std::string pruner);
+
+  int get_current_synapse_schedule();
 };
 
 

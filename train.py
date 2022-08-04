@@ -116,7 +116,8 @@ def main():
     if exp.get_int_param("cuda"):
         model.cuda()
 
-    optimizer = optim.Adam(model.parameters(), lr=exp.get_float_param("step_size"))
+    #optimizer = optim.Adam(model.parameters(), lr=exp.get_float_param("step_size"))
+    optimizer = optim.SGD(model.parameters(), lr=exp.get_float_param("step_size"))
 
     step = 0
     running_acc = 0
@@ -126,6 +127,8 @@ def main():
         model.train()
         error_list = []
         for batch_idx, (data, target) in enumerate(train_loader):
+            from IPython import embed; embed()
+            exit()
             step += 1
             if exp.get_int_param("cuda"):
                 data, target = data.cuda(), target.cuda()
@@ -144,7 +147,7 @@ def main():
             running_acc = 0.995 * running_acc + 0.005 * correct / exp.get_int_param(
                 "batch_size"
             )
-            if batch_idx % 100 == 0:
+            if batch_idx % 1000 == 0:
                 print(
                     "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tRunning Acc: {:.3f}".format(
                         epoch,
@@ -155,7 +158,7 @@ def main():
                         running_acc,
                     )
                 )
-            if step % 100 == 0:
+            if step % 1000 == 0:
                 error_list.append(
                     [
                         str(exp.get_int_param("run")),
@@ -172,13 +175,13 @@ def main():
 
     print("total time: \t", str(timedelta(seconds=timer() - start)))
 
-    model.eval()
-    model.cpu()
-    sample = [x for x, y in test_loader][0]
-    if exp.get_int_param("cuda"):
-        sample = sample
-    traced_script_module = torch.jit.trace(model, sample)
-    traced_script_module.save("trained_models/mnist_pretrained_" + str(exp.get_int_param("seed")) + ".pt")
+    #model.eval()
+    #model.cpu()
+    #sample = [x for x, y in test_loader][0]
+    #if exp.get_int_param("cuda"):
+    #    sample = sample
+    #traced_script_module = torch.jit.trace(model, sample)
+    #traced_script_module.save("trained_models/mnist_untrained_" + str(exp.get_int_param("seed")) + ".pt")
 
 
 if __name__ == "__main__":
