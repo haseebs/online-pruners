@@ -23,7 +23,7 @@ PretrainedDenseNetwork::PretrainedDenseNetwork(torch::jit::script::Module traine
 	this->min_synapses_to_keep = min_synapses_to_keep;
 	this->prune_interval = prune_interval;
 	this->start_pruning_at = start_pruning_at;
-  this->trace_decay_rate = trace_decay_rate;
+	this->trace_decay_rate = trace_decay_rate;
 
 	for (int i = 0; i < no_of_input_features; i++) {
 		SyncedNeuron *n = new LinearSyncedNeuron(true, false);
@@ -63,7 +63,7 @@ PretrainedDenseNetwork::PretrainedDenseNetwork(torch::jit::script::Module traine
 				                                     param_group.index({neuron_idx, synapse_idx}).item<float>(),
 				                                     step_size);
 				new_synapse->set_utility_to_keep(utility_to_keep);
-        new_synapse->trace_decay_rate = trace_decay_rate;
+				new_synapse->trace_decay_rate = trace_decay_rate;
 				this->all_synapses.push_back(new_synapse);
 			}
 
@@ -102,6 +102,7 @@ void PretrainedDenseNetwork::update_dropout_utility_estimates(std::vector<float>
 		synapses_to_drop[i]->is_dropped_out= true;
 
 	this->forward(inp);
+	this->time_step--; //this forward pass is not an actual step
 	auto dropout_predictions = this->read_output_values();
 
 	float sum_of_differences = 0;
@@ -322,7 +323,7 @@ void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 	this->time_step++;
 }
 
-void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_weight) {
+void PretrainedDenseNetwork::backward(std::vector<float> target) {
 	this->introduce_targets(target);
 
 	std::for_each(
@@ -375,31 +376,37 @@ void PretrainedDenseNetwork::backward(std::vector<float> target, bool update_wei
 		[&](SyncedSynapse *s) {
 		s->assign_credit();
 	});
+}
 
-////  Update our weights (based on either normal update or IDBD update
-	if(update_weight) {
-		std::for_each(
-			std::execution::unseq,
-			all_synapses.begin(),
-			all_synapses.end(),
-			[&](SyncedSynapse *s) {
-			s->update_weight();
-		});
-	}
+void PretrainedDenseNetwork::update_weights() {
+	std::for_each(
+		std::execution::unseq,
+		all_synapses.begin(),
+		all_synapses.end(),
+		[&](SyncedSynapse *s) {
+		s->update_weight();
+	});
 }
 
 
 int PretrainedDenseNetwork::get_current_synapse_schedule() {
-  return std::max(int(this->min_synapses_to_keep),
-                  int( this->total_initial_synapses - ( (this->time_step - this->start_pruning_at) / this->prune_interval )));
+	return std::max(int(this->min_synapses_to_keep),
+	                int( this->total_initial_synapses - ( (this->time_step - this->start_pruning_at) / this->prune_interval )));
 }
 
 
 void PretrainedDenseNetwork::prune_weights(std::string pruner){
 
+	//if (this->time_step % 1000 == 0) {
+	//	std::cout << "Current syn: " << all_synapses.size() << std::endl;
+	//	std::cout << "Initial syn: " << this->total_initial_synapses << std::endl;
+	//	std::cout << "step: " << this->time_step << std::endl;
+	//	std::cout << "step-: " << (this->time_step - this->start_pruning_at) / this->prune_interval<< std::endl;
+	//	std::cout << "noint: " << this->total_initial_synapses - ((this->time_step - this->start_pruning_at) / this->prune_interval)<< std::endl;
+	//	std::cout << "int: " << int(this->total_initial_synapses - ((this->time_step - this->start_pruning_at) / this->prune_interval))<< std::endl;
+	//}
+	//std::cout << "Current syn should be: " << (total_initial_synapses - ( (this->time_step - this->start_pruning_at) /this->prune_interval)) << std::endl;
 	if (this->time_step > this->prune_interval && this->time_step > this->start_pruning_at && this->time_step % this->prune_interval == 0) {
-		//std::cout << "Current syn: " << all_synapses.size() << std::endl;
-		//std::cout << "Current syn should be: " << (total_initial_synapses - ( (this->time_step - this->start_pruning_at) /this->prune_interval)) << std::endl;
 		if (this->all_synapses.size() > this->get_current_synapse_schedule()) {
 			//std::cout << "pruuuuuuuuuuuuuuuuuuuuuuuune" << std::endl;
 			if (pruner == "utility_propagation")

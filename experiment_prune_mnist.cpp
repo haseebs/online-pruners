@@ -98,6 +98,8 @@ int main(int argc, char *argv[]){
 	int total_data_points = my_experiment->get_int_param("training_points");
 	int total_steps = 0;
 	bool training_phase = true;
+  if (my_experiment->get_float_param("step_size") != 0.0) //just save some computation
+    training_phase = false;
 
   int total_initial_synapses = network.all_synapses.size();
 
@@ -128,9 +130,16 @@ int main(int argc, char *argv[]){
 			accuracy*= 0.999;
 		}
 
+		network.backward(y);
 
-		network.backward(y, training_phase);
+		if (my_experiment->get_string_param("pruner_type") == "dropout_utility_estimator")
+      for (int k = 0; k < my_experiment->get_int_param("dropout_estimator_iterations"); k++)
+        network.update_dropout_utility_estimates(x, prediction, my_experiment->get_float_param("dropout_perc"));
     network.prune_weights(my_experiment->get_string_param("pruner_type"));
+
+    if (training_phase)
+      network.update_weights();
+
 		if (i % 100 == 0) {
 			std::vector<std::string> error;
 			error.push_back(std::to_string(i));

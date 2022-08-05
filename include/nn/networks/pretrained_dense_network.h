@@ -51,7 +51,9 @@ class PretrainedDenseNetwork : public SyncedNetwork {
 
   void forward(std::vector<float> inputs);
 
-  void backward(std::vector<float> targets, bool update_val);
+  void backward(std::vector<float> targets);
+
+  void update_weights();
 
   void add_feature(float step_size, float utility_to_keep);
 
