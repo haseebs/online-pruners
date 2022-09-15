@@ -14,7 +14,6 @@ int64_t SyncedSynapse::synapse_id_generator = 0;
 
 SyncedSynapse::SyncedSynapse(SyncedNeuron *input, SyncedNeuron *output, float w, float step_size) {
 	references = 0;
-	this->is_recurrent_connection = false;
 	input_neuron = input;
 	input->increment_reference();
 	output_neuron = output;
@@ -28,14 +27,10 @@ SyncedSynapse::SyncedSynapse(SyncedNeuron *input, SyncedNeuron *output, float w,
 	input_neuron->outgoing_synapses.push_back(this);
 	this->increment_reference();
 	output_neuron->incoming_synapses.push_back(this);
-	this->idbd = false;
 	this->id = synapse_id_generator;
 	synapse_id_generator++;
-	this->l2_norm_meta_gradient = 100;
-	trace = 0;
 	propagate_gradients = true;
 	synapse_utility = 0;
-	meta_step_size = 1e-4;
 	if (input->is_input_neuron) {
 		propagate_gradients = false;
 	}
@@ -60,19 +55,6 @@ void SyncedSynapse::set_utility_to_keep(float util) {
 
 float SyncedSynapse::get_utility_to_keep() {
 	return this->utility_to_keep;
-}
-
-void SyncedSynapse::set_connected_to_recurrence(bool val) {
-	this->is_recurrent_connection = val;
-}
-
-
-void SyncedSynapse::reset_trace() {
-	this->trace = 0;
-}
-
-void SyncedSynapse::set_meta_step_size(float val) {
-	this->meta_step_size = val;
 }
 
 void SyncedSynapse::update_utility() {
@@ -103,61 +85,14 @@ void SyncedSynapse::update_utility() {
  * Calculate and set credit based on gradients in the current synapse.
  */
 void SyncedSynapse::assign_credit() {
-
-	this->trace = this->trace * this->grad_queue_weight_assignment.gamma *
-	              this->grad_queue_weight_assignment.lambda +
-	              this->input_neuron->value *
-	              this->grad_queue_weight_assignment.gradient;
-
-	this->tidbd_old_activation = this->weight_assignment_past_activations.gradient_activation;
-	this->tidbd_old_error = this->grad_queue_weight_assignment.error;
-
-	this->credit = this->trace * this->grad_queue_weight_assignment.error;
-
+  this->credit = this->input_neuron->value * this->grad_queue_weight_assignment.gradient;
 }
 
 void SyncedSynapse::block_gradients() {
 	propagate_gradients = false;
 }
 
-bool SyncedSynapse::get_recurrent_status() {
-	return is_recurrent_connection;
-}
-
-void SyncedSynapse::turn_on_idbd() {
-	this->idbd = true;
-	this->log_step_size_tidbd = log(this->step_size);
-	this->h_tidbd = 0;
-	this->step_size = exp(this->log_step_size_tidbd);
-}
-
-void SyncedSynapse::turn_off_idbd() {
-	this->idbd = false;
-}
-
 void SyncedSynapse::update_weight() {
-//
-	if (this->idbd) {
-		float meta_grad = this->tidbd_old_error * this->trace * this->h_tidbd;
-		this->l2_norm_meta_gradient = this->l2_norm_meta_gradient * 0.99 + (1 - 0.99) * (meta_grad * meta_grad);
-		if (age > 1000) {
-			this->log_step_size_tidbd += this->meta_step_size * meta_grad / (sqrt(this->l2_norm_meta_gradient) + 1e-8);
-			this->log_step_size_tidbd = max(this->log_step_size_tidbd, -15);
-			this->log_step_size_tidbd = min(this->log_step_size_tidbd, -3);
-			this->step_size = exp(this->log_step_size_tidbd);
-			this->weight -= (this->step_size * this->credit);
-			if ((1 - this->step_size * this->tidbd_old_activation * this->trace) > 0) {
-				this->h_tidbd =
-					this->h_tidbd * (1 - this->step_size * this->tidbd_old_activation * this->trace) +
-					this->step_size * this->trace * this->tidbd_old_error;
-//        std::cout << "Decay rate " << (1 - this->step_size * this->tidbd_old_activation * this->trace) << std::endl;
-			} else {
-				this->h_tidbd = this->step_size * this->trace * this->tidbd_old_error;
-			}
-		}
-
-	} else {
-		this->weight -= (this->step_size * this->credit);
-	}
+  this->weight -= (this->step_size * this->credit);
 }
 

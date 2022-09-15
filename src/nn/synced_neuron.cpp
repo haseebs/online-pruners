@@ -85,16 +85,9 @@ bool to_delete_ss(SyncedSynapse *s) {
 void SyncedNeuron::forward_gradients() {
 //  If this neuron has gradients to pass back
 	for (auto &it : this->incoming_synapses) {
-		float message_value;
-
-		message_value = this->error_gradient.gradient;
 
 //          We pack our gradient into a new message and pass it back to our incoming synapse.
-		message grad_temp(message_value, this->error_gradient.time_step);
-		grad_temp.lambda = this->error_gradient.lambda;
-		grad_temp.gamma = this->error_gradient.gamma;
-		grad_temp.error = this->error_gradient.error;
-		grad_temp.target = this->error_gradient.target;
+		message grad_temp(this->error_gradient.gradient, this->error_gradient.time_step);
 
 		if (it->propagate_gradients)
 			it->grad_queue = grad_temp;
@@ -111,6 +104,8 @@ void SyncedNeuron::forward_gradients() {
 void LTUSynced::set_threshold(float threshold) {
 	this->activation_threshold = threshold;
 }
+
+
 int SyncedNeuron::get_no_of_syanpses_with_gradients() {
 	int synapse_with_gradient = 0;
 	for (auto it: this->outgoing_synapses) {
@@ -119,12 +114,11 @@ int SyncedNeuron::get_no_of_syanpses_with_gradients() {
 	}
 	return synapse_with_gradient;
 }
+
+
 void SyncedNeuron::propagate_error() {
 	float accumulate_gradient = 0;
-	std::vector<int> time_vector;
-	std::vector<int> distance_vector;
-	std::vector<float> error_vector;
-	std::vector<message> messages_q;
+  int grad_queue_timestep;
 
 //  No gradient propagation required for prediction nodes
 
@@ -137,69 +131,19 @@ void SyncedNeuron::propagate_error() {
 	if (this->get_no_of_syanpses_with_gradients() > 0 && !is_input_neuron) {
 
 		for (auto &output_synapses_iterator : this->outgoing_synapses) {
-//      std::cout << "Iterating over outoging synapses\n";
-//      std::cout << output_synapses_iterator->id << " " << output_synapses_iterator->weight << std::endl;
 			accumulate_gradient += output_synapses_iterator->weight *
 			                       output_synapses_iterator->grad_queue.gradient *
 			                       this->backward(this->value);
-			error_vector.push_back(output_synapses_iterator->grad_queue.error);
-			messages_q.push_back(output_synapses_iterator->grad_queue);
-			time_vector.push_back(output_synapses_iterator->grad_queue.time_step);
+      grad_queue_timestep = output_synapses_iterator->grad_queue.time_step;
 			output_synapses_iterator->grad_queue.remove = true;
 
 		}
 
-//    std::cout <<
-		message n_message(accumulate_gradient, time_vector[0]);
-		n_message.error = error_vector[0];
-    //std::cout << time_vector[0] <<  " error vector: ";
-    //print_vector(error_vector);
-		n_message.gamma = messages_q[0].gamma;
-		n_message.lambda = messages_q[0].lambda;
-		n_message.target = messages_q[0].target;
-//    auto it = std::max_element(distance_vector.begin(), distance_vector.end());
-//    n_message.distance_travelled = *it;
+		message n_message(accumulate_gradient, grad_queue_timestep);
 
 		this->error_gradient = n_message;
 	}
 }
-
-/**
- * Mark synapses and neurons for deletion. Synapses will only get deleted if its age is > 70k.
- * SyncedNeurons will only be deleted if there are no outgoing synapses (and it's not an output neuron of course!)
- */
-//void SyncedNeuron::mark_useless_weights() {
-//  std::uniform_real_distribution<float> dist(0, 1);
-//
-//  if (this->neuron_age > this->drinking_age) {
-//    for (auto &it : this->outgoing_synapses) {
-//
-//      if (it->output_neuron->neuron_age > it->output_neuron->drinking_age
-//          && it->synapse_utility < it->utility_to_keep && !it->disable_utility) {
-//        if (dist(gen) > this->mark_useless_prob)
-//          it->is_useless = true;
-//      }
-//    }
-//  }
-//
-////  if this current neuron has no outgoing synapses and is not an output or input neuron,
-////  delete it a
-////  nd its incoming synapses.
-//  if (this->incoming_synapses.empty() && !this->is_input_neuron && !this->is_output_neuron) {
-//    this->useless_neuron = true;
-//    for (auto it : this->outgoing_synapses)
-//      it->is_useless = true;
-//  }
-//
-//
-//
-//  if (this->outgoing_synapses.empty() && !this->is_output_neuron && !this->is_input_neuron) {
-//    this->useless_neuron = true;
-//    for (auto it : this->incoming_synapses)
-//      it->is_useless = true;
-//  }
-//}
-
 
 void SyncedNeuron::mark_useless_weights() {
 
@@ -278,44 +222,11 @@ float SyncedNeuron::introduce_targets(float target, int time_step) {
 
 	float error = this->value - target;
 
-	message m(this->backward(this->value), time_step);
-	m.error = error;
-	m.lambda = 0;
-	m.gamma = 0;
-	m.target = target;
+	message m(this->backward(this->value) * error, time_step);
 	this->error_gradient = m;
 	return error * error;
 }
 
-/**
- * Introduce a target to a neuron and calculate its error.
- * In this case, target should be our TD target, and the neuron should be an outgoing neuron.
- * @param target: target gradient_activation to calculate our error.
- * @param time_step: time step that we calculate this error. Use for backprop purposes.
- * @param gamma: discount factor
- * @param lambda: eligibility trace decay parameter
- * @return: squared error
- */
-//float SyncedNeuron::introduce_targets(float target, int time_step, float gamma, float lambda) {
-////  Introduce a target to a neuron and calculate its error.
-////  In this case, target should be our TD target.
-//
-////      The activation is the output of our NN.
-//  float error;
-//
-//  error = this->value - target;
-//  float error_grad = error;
-//
-//
-////      Create our error gradient for this neuron
-//  message m(1, time_step);
-//  m.lambda = lambda;
-//  m.gamma = gamma;
-//  m.error = error_grad;
-//
-//  this->error_gradient = m;
-//  return error;
-//}
 
 float LinearSyncedNeuron::forward(float temp_value) {
 	return temp_value;
