@@ -152,6 +152,8 @@ void SyncedNeuron::propagate_error() {
 //    std::cout <<
 		message n_message(accumulate_gradient, time_vector[0]);
 		n_message.error = error_vector[0];
+    //std::cout << time_vector[0] <<  " error vector: ";
+    //print_vector(error_vector);
 		n_message.gamma = messages_q[0].gamma;
 		n_message.lambda = messages_q[0].lambda;
 		n_message.target = messages_q[0].target;

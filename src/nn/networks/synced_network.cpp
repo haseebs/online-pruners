@@ -82,7 +82,8 @@ void SyncedNetwork::set_input_values(std::vector<float> const &input_values) {
 void SyncedNetwork::print_neuron_status() {
   std::cout << "ID\tUtility\tinput\toutput\tlayer\n";
   for (auto it : this->all_neurons) {
-    if (it->neuron_age > it->drinking_age) {
+    //if (it->neuron_age > it->drinking_age) {
+    if (it->neuron_age > -1) {
       std::cout << it->id << "\t" << it->neuron_utility << "\t" << it->is_input_neuron << "\t" << it->is_output_neuron << "\t" << it->layer_number << std::endl;
     }
   }
@@ -91,8 +92,9 @@ void SyncedNetwork::print_neuron_status() {
 void SyncedNetwork::print_synapse_status() {
   std::cout << "From\tTo\tWeight\tUtil\tUtiltoD\tStep-size\tAge\n";
   for (auto it : this->all_synapses) {
-    if (it->output_neuron->neuron_age > it->output_neuron->drinking_age
-        && it->input_neuron->neuron_age > it->input_neuron->drinking_age) {
+    //if (it->output_neuron->neuron_age > it->output_neuron->drinking_age
+    //    && it->input_neuron->neuron_age > it->input_neuron->drinking_age) {
+    if (it->output_neuron->neuron_age > -1) {
       std::cout << it->input_neuron->id << "\t" << it->output_neuron->id << "\t" << it->weight << "\t"
                 << it->synapse_utility << "\t" << it->synapse_utility_to_distribute << "\t" << it->step_size << "\t"
                 << it->age << std::endl;

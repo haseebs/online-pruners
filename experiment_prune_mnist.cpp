@@ -98,7 +98,7 @@ int main(int argc, char *argv[]){
 	int total_data_points = my_experiment->get_int_param("training_points");
 	int total_steps = 0;
 	bool training_phase = true;
-  if (my_experiment->get_float_param("step_size") != 0.0) //just save some computation
+  if (my_experiment->get_float_param("step_size") == 0.0) //just save some computation
     training_phase = false;
 
   int total_initial_synapses = network.all_synapses.size();

@@ -15,7 +15,7 @@
 #include "../../include/nn/dynamic_elem.h"
 
 float sigmoid(float a) {
-  return (1.0) / (1.0 + exp(-1 * a));
+  return (1.0) / (1.0 + exp(-1.0 * a));
 }
 
 float tanh(float a){
