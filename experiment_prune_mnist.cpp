@@ -122,12 +122,12 @@ int main(int argc, char *argv[]){
 		for(int i = 0; i<prediction.size(); i++) {
 			error += (prediction[i]-y[i])*(prediction[i]-y[i]);
 		}
-		running_error = running_error * 0.999 + 0.001 * sqrt(error);
+		running_error = running_error * 0.995 + 0.005 * sqrt(error);
 		if(argmax(prediction) == y_index) {
-			accuracy = accuracy*0.999 + 0.001;
+			accuracy = accuracy*0.995 + 0.005;
 		}
 		else{
-			accuracy*= 0.999;
+			accuracy*= 0.995;
 		}
 
 		network.backward(y);
@@ -140,7 +140,7 @@ int main(int argc, char *argv[]){
     if (training_phase)
       network.update_weights();
 
-		if (i % 100 == 0) {
+		if (i % 1000 == 0) {
 			std::vector<std::string> error;
 			error.push_back(std::to_string(i));
 			error.push_back(std::to_string(my_experiment->get_int_param("run")));
@@ -152,7 +152,7 @@ int main(int argc, char *argv[]){
 			error_logger.push_back(error);
 		}
 
-		if (i % 1000 == 0) {
+		if (i % 100000 == 0) {
 			std::cout << "Step " << i << std::endl;
 			std::cout << "Network confing\n";
 			std::cout << "No\tSize\tSynapses\tOutput\n";
@@ -194,7 +194,7 @@ int main(int argc, char *argv[]){
 		}
 
 
-		if(i % 10000 == 0) {
+		if(i % 50000 == 0) {
 			std::cout << error_logger.size() << std::endl;
 			error_metric.add_values(error_logger);
 			state_metric.add_values(state_logger);

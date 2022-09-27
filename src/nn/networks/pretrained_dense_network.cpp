@@ -100,7 +100,7 @@ void PretrainedDenseNetwork::update_dropout_utility_estimates(std::vector<float>
 
 	for (int i = 0; i < total_dropped_synapses; i++)
 		synapses_to_drop[i]->is_dropped_out= true;
-
+  //TODO this is bugged with non-zero step-sizes
 	this->forward(inp);
 	this->time_step--; //this forward pass is not an actual step
 	auto dropout_predictions = this->read_output_values();
