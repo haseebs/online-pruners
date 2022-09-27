@@ -53,6 +53,12 @@ add_executable(SmallExample src/utils.cpp include/utils.h include/experiment/Exp
         include/nn/networks/small_network.h src/nn/networks/small_network.cpp
         include/json.hpp exp_linear.cpp)
 
+
+
+add_executable(Count include/json.hpp include/utils.h src/utils.cpp include/experiment/Experiment.h include/experiment/Metric.h include/experiment/Database.h src/experiment/Metric.cpp src/experiment/Database.cpp src/experiment/Experiment.cpp
+        count_configs.cpp)
+
+
 pybind11_add_module(FlexibleNN src/utils.cpp include/utils.h include/experiment/Experiment.h src/experiment/Experiment.cpp include/experiment/Database.h
         src/experiment/Database.cpp include/experiment/Metric.h src/experiment/Metric.cpp include/nn/utils.h src/nn/utils.cpp
         pybind_interface/interface.cpp)
@@ -84,6 +90,9 @@ target_link_libraries(SmallExample PUBLIC torch)
 target_link_libraries(ModelExportTest PUBLIC tbb)
 target_link_libraries(ModelExportTest PUBLIC mariadb)
 target_link_libraries(ModelExportTest PUBLIC torch)
+
+target_link_libraries(Count PUBLIC tbb)
+target_link_libraries(Count PUBLIC mariadb)
 
 target_link_libraries(loading-test "${TORCH_LIBRARIES}")
 

@@ -15,10 +15,13 @@ class Database {
 
   static std::string vec_to_tuple(std::vector<std::string> row, const std::string &padding);
 
- public:
   int connect();
 
   int connect_and_use(std::string database_name);
+
+  int run_query(std::string query, const std::string &database_name);
+
+ public:
 
   int create_database(const std::string &database_name);
 
@@ -29,7 +32,7 @@ class Database {
   int add_row_to_table(const std::string &database_name, const std::string &table, std::vector<std::string> keys,
                        std::vector<std::string> values);
 
-  int run_query(std::string query, const std::string &database_name);
+
 
   int make_table(const std::string &database_name, const std::string &table, std::vector<std::string> keys,
                  std::vector<std::string> types,

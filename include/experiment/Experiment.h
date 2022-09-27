@@ -36,7 +36,7 @@ class Experiment {
 
   std::string get_string_param(const std::string &);
 
-  std::vector<std::string> get_vector_param(const std::string&);
+  std::vector<std::string> get_vector_param(const std::string &);
 };
 
 class ExperimentJSON : public Experiment {
@@ -50,9 +50,10 @@ class ExperimentJSON : public Experiment {
   std::map<std::string, std::string> get_args_for_run(nlohmann::json j, int rank);
 };
 
-class CountConfig : public ExperimentJSON{
+class CountConfig : public ExperimentJSON {
  public:
   CountConfig(int argc, char *argv[]);
 };
 
 #endif  // INCLUDE_EXPERIMENT_EXPERIMENT_H_
+
