@@ -14,6 +14,12 @@
 
 class PretrainedDenseNetwork : public SyncedNetwork {
 
+ private:
+
+  void update_activation_trace_estimates();
+  void update_utility_propagation_estimates();
+  void update_dropout_utility_estimates(std::vector<float> inp, std::vector<float> normal_predictions, float dropout_perc);
+
  public:
 
   float perc_prune;
@@ -32,7 +38,7 @@ class PretrainedDenseNetwork : public SyncedNetwork {
                          int no_of_input_features,
                          float utility_to_keep,
                          float perc_prune,
-                         int min_synapses_to_keep,
+                         in\n\nt min_synapses_to_keep,
                          int prune_interval,
                          int start_pruning_at,
                          float trace_decay_rate);
@@ -47,23 +53,12 @@ class PretrainedDenseNetwork : public SyncedNetwork {
 
   std::string get_viz_graph();
 
-  void imprint();
-
   void forward(std::vector<float> inputs);
 
   void backward(std::vector<float> targets);
 
   void update_weights();
 
-  void add_feature(float step_size, float utility_to_keep);
-
-  void add_feature_binary(float step_size, float utility_to_keep);
-
-  void imprint_feature(int index, std::vector<float> feature, float step_size, float meta_step_size, int target);
-
-  void imprint_feature_random(float step_size, float meta_step_size);
-
-  void update_dropout_utility_estimates(std::vector<float> inp, std::vector<float> normal_predictions, float dropout_perc);
   void prune_using_dropout_utility_estimator();
   void prune_using_utility_propoagation();
   void prune_using_trace_of_activation_magnitude();
@@ -71,6 +66,11 @@ class PretrainedDenseNetwork : public SyncedNetwork {
   void prune_using_random_pruner();
 
   void prune_weights(std::string pruner);
+  void update_utility_estimates(std::string pruner,
+                                std::vector<float> input,
+                                std::vector<float> prediction,
+                                int dropout_iterations,
+                                float dropout_perc);
 
   int get_current_synapse_schedule();
 };
