@@ -26,6 +26,7 @@ SyncedNeuron::SyncedNeuron(bool is_input, bool is_output) {
 	mark_useless_prob = 0.99;
 	is_bias_unit = false;
 	is_mature = false;
+  is_dropped_out = false;
 }
 
 void SyncedNeuron::set_layer_number(int layer) {

@@ -84,171 +84,6 @@ PretrainedDenseNetwork::PretrainedDenseNetwork(torch::jit::script::Module traine
 PretrainedDenseNetwork::~PretrainedDenseNetwork() {
 }
 
-void PretrainedDenseNetwork::update_dropout_utility_estimates(std::vector<float> inp,
-                                                              std::vector<float> normal_predictions,
-                                                              float dropout_perc){
-	int total_dropped_synapses = this->all_synapses.size() * dropout_perc;
-	if (total_dropped_synapses < 1)
-		total_dropped_synapses = 1;
-
-	std::vector<SyncedSynapse *> synapses_to_drop;
-	std::sample(this->all_synapses.begin(),
-	            this->all_synapses.end(),
-	            std::back_inserter(synapses_to_drop),
-	            total_dropped_synapses,
-	            this->mt);
-
-	for (int i = 0; i < total_dropped_synapses; i++)
-		synapses_to_drop[i]->is_dropped_out= true;
-  //TODO this is bugged with non-zero step-sizes
-	this->forward(inp);
-	this->time_step--; //this forward pass is not an actual step
-	auto dropout_predictions = this->read_output_values();
-
-	float sum_of_differences = 0;
-	for (int i = 0; i < dropout_predictions.size(); i++)
-		sum_of_differences += fabs(normal_predictions[i] - dropout_predictions[i]);
-
-	for (int i = 0; i < total_dropped_synapses; i++) {
-		synapses_to_drop[i]->dropout_utility_estimate = this->trace_decay_rate * synapses_to_drop[i]->dropout_utility_estimate + (1-this->trace_decay_rate) * sum_of_differences;
-		synapses_to_drop[i]->is_dropped_out = false;
-	}
-}
-
-
-void PretrainedDenseNetwork::prune_using_dropout_utility_estimator() {
-	//TODO need a good way to make sure that the estimates are reasonably accurate?
-	//maybe use another pruner at the beginning?
-	if (all_synapses.size() < this->min_synapses_to_keep)
-		return;
-
-	//int total_removals = int(all_synapses.size() * perc_prune);
-	//if (all_synapses.size() - total_removals < this->min_synapses_to_keep)
-	//	total_removals = all_synapses.size() - this->min_synapses_to_keep;
-	int total_removals = 1;
-
-	//std::cout << "Removing " << total_removals << " synapses" << std::endl;
-	std::vector<SyncedSynapse *> all_synapses_copy(this->all_synapses);
-
-	std::nth_element(all_synapses_copy.begin(),
-	                 all_synapses_copy.begin() + total_removals,
-	                 all_synapses_copy.end(),
-	                 []( auto a, auto b ) {
-		return fabs(a->dropout_utility_estimate) < fabs(b->dropout_utility_estimate);
-	} );
-
-	//TODO check to see if this vector is copy of addresses or copy of values
-	for (int i = 0; i < total_removals; i++)
-		all_synapses_copy[i]->is_useless = true;
-}
-
-void PretrainedDenseNetwork::prune_using_trace_of_activation_magnitude() {
-	if (all_synapses.size() < this->min_synapses_to_keep)
-		return;
-
-	//int total_removals = int(all_synapses.size() * perc_prune);
-	//if (all_synapses.size() - total_removals < this->min_synapses_to_keep)
-	//	total_removals = all_synapses.size() - this->min_synapses_to_keep;
-	int total_removals = 1;
-
-	//std::cout << "Removing " << total_removals << " synapses" << std::endl;
-	std::vector<SyncedSynapse *> all_synapses_copy(this->all_synapses);
-
-	std::nth_element(all_synapses_copy.begin(),
-	                 all_synapses_copy.begin() + total_removals,
-	                 all_synapses_copy.end(),
-	                 []( auto a, auto b ) {
-		return fabs(a->activation_trace) < fabs(b->activation_trace);
-	} );
-
-	//TODO check to see if this vector is copy of addresses or copy of values
-	for (int i = 0; i < total_removals; i++)
-		all_synapses_copy[i]->is_useless = true;
-}
-
-
-void PretrainedDenseNetwork::prune_using_weight_magnitude_pruner() {
-	if (all_synapses.size() < this->min_synapses_to_keep)
-		return;
-
-	//int total_removals = int(all_synapses.size() * perc_prune);
-	//if (all_synapses.size() - total_removals < this->min_synapses_to_keep)
-	//	total_removals = all_synapses.size() - this->min_synapses_to_keep;
-	int total_removals = 1;
-
-	//std::cout << "Removing " << total_removals << " synapses" << std::endl;
-	std::vector<SyncedSynapse *> all_synapses_copy(this->all_synapses);
-
-	std::nth_element(all_synapses_copy.begin(),
-	                 all_synapses_copy.begin() + total_removals,
-	                 all_synapses_copy.end(),
-	                 []( auto a, auto b ) {
-		return fabs(a->weight) < fabs(b->weight);
-	} );
-
-	//TODO check to see if this vector is copy of addresses or copy of values
-	for (int i = 0; i < total_removals; i++) {
-		//std::cout << "removing: " << all_synapses_copy[i]->id<< std::endl;
-		all_synapses_copy[i]->is_useless = true;
-	}
-}
-
-void PretrainedDenseNetwork::prune_using_random_pruner() {
-	if (all_synapses.size() < this->min_synapses_to_keep)
-		return;
-
-	//int total_removals = int(all_synapses.size() * perc_prune);
-	//if (all_synapses.size() - total_removals < this->min_synapses_to_keep)
-	//	total_removals = all_synapses.size() - this->min_synapses_to_keep;
-	int total_removals = 1;
-
-	//std::cout << "Removing " << total_removals << " synapses (random pruner)" << std::endl;
-	std::vector<SyncedSynapse *> synapses_to_remove;
-	std::sample(this->all_synapses.begin(),
-	            this->all_synapses.end(),
-	            std::back_inserter(synapses_to_remove),
-	            total_removals,
-	            this->mt);
-
-	//TODO check to see if this vector is copy of addresses or copy of values
-	for (int i = 0; i < total_removals; i++) {
-		synapses_to_remove[i]->is_useless = true;
-	}
-}
-
-
-void PretrainedDenseNetwork::prune_using_utility_propoagation() {
-	if (all_synapses.size() < this->min_synapses_to_keep)
-		return;
-
-	//int total_removals = int(all_synapses.size() * perc_prune);
-	//if (all_synapses.size() - total_removals < this->min_synapses_to_keep)
-	//	total_removals = all_synapses.size() - this->min_synapses_to_keep;
-	int total_removals = 1;
-
-	//std::cout << "Removing " << total_removals << " synapses" << std::endl;
-	std::vector<SyncedSynapse *> all_synapses_copy(this->all_synapses);
-
-	std::nth_element(all_synapses_copy.begin(),
-	                 all_synapses_copy.begin() + total_removals,
-	                 all_synapses_copy.end(),
-	                 []( auto a, auto b ) {
-		return a->synapse_utility < b->synapse_utility;
-	} );
-	//std::sort(all_synapses_copy.begin(),
-	//          all_synapses_copy.end(),
-	//          []( auto a, auto b ) {
-	//    //std::cout << a->id << ":" << b->id;
-	//    //std::cout << "\t" << a->synapse_utility << ":" << b->synapse_utility <<std::endl;
-	//		return a->synapse_utility < b->synapse_utility;
-	//	} );
-
-	//TODO check to see if this vector is copy of addresses or copy of values
-	for (int i = 0; i < total_removals; i++) {
-		//std::cout << "removing: " << all_synapses_copy[i]->id<< std::endl;
-		all_synapses_copy[i]->is_useless = true;
-	}
-}
 
 
 void PretrainedDenseNetwork::forward(std::vector<float> inp) {
@@ -312,13 +147,6 @@ void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 	});
 
 //  std::cout << "Updating neuron utility \n";
-	std::for_each(
-		std::execution::unseq,
-		this->all_neurons.begin(),
-		this->all_neurons.end(),
-		[&](SyncedNeuron *n) {
-		n->update_utility();
-	});
 
 	this->time_step++;
 }
@@ -351,23 +179,6 @@ void PretrainedDenseNetwork::backward(std::vector<float> target) {
 			n->forward_gradients();
 		});
 	}
-//  Calculate our credit
-
-	std::for_each(
-		std::execution::unseq,
-		all_synapses.begin(),
-		all_synapses.end(),
-		[&](SyncedSynapse *s) {
-		s->update_activation_trace();
-	});
-
-	std::for_each(
-		std::execution::unseq,
-		all_synapses.begin(),
-		all_synapses.end(),
-		[&](SyncedSynapse *s) {
-		s->update_utility();
-	});
 
 	std::for_each(
 		std::execution::unseq,
@@ -377,6 +188,7 @@ void PretrainedDenseNetwork::backward(std::vector<float> target) {
 		s->assign_credit();
 	});
 }
+
 
 void PretrainedDenseNetwork::update_weights() {
 	std::for_each(
@@ -389,6 +201,173 @@ void PretrainedDenseNetwork::update_weights() {
 }
 
 
+void PretrainedDenseNetwork::update_utility_estimates(std::string pruner){
+	if (pruner == "utility_propagation")
+		this->update_utility_propagation_estimates();
+	else if (pruner == "activation_trace")
+		this->update_activation_trace_estimates();
+	else if (pruner == "dropout_utility_estimator")
+		this->update_dropout_utility_estimates();
+}
+
+
+void PretrainedDenseNetwork::update_activation_trace_estimates(){
+	std::for_each(
+		std::execution::unseq,
+		all_synapses.begin(),
+		all_synapses.end(),
+		[&](SyncedSynapse *s) {
+		s->update_activation_trace();
+	});
+}
+
+
+void PretrainedDenseNetwork::update_utility_propagation_estimates(){
+	std::for_each(
+		std::execution::unseq,
+		this->all_neurons.begin(),
+		this->all_neurons.end(),
+		[&](SyncedNeuron *n) {
+		n->update_utility();
+	});
+
+	std::for_each(
+		std::execution::unseq,
+		all_synapses.begin(),
+		all_synapses.end(),
+		[&](SyncedSynapse *s) {
+		s->update_utility();
+	});
+}
+
+
+void PretrainedDenseNetwork::update_dropout_utility_estimates(std::vector<float> inp,
+                                                              std::vector<float> normal_predictions,
+                                                              float dropout_perc){
+	int total_dropped_synapses = this->all_synapses.size() * dropout_perc;
+	if (total_dropped_synapses < 1)
+		total_dropped_synapses = 1;
+
+	std::vector<SyncedSynapse *> synapses_to_drop;
+	std::sample(this->all_synapses.begin(),
+	            this->all_synapses.end(),
+	            std::back_inserter(synapses_to_drop),
+	            total_dropped_synapses,
+	            this->mt);
+
+	for (int i = 0; i < total_dropped_synapses; i++)
+		synapses_to_drop[i]->is_dropped_out= true;
+	//TODO this is bugged with non-zero step-sizes
+	this->forward(inp);
+	this->time_step--; //this forward pass is not an actual step
+	auto dropout_predictions = this->read_output_values();
+
+	float sum_of_differences = 0;
+	for (int i = 0; i < dropout_predictions.size(); i++)
+		sum_of_differences += fabs(normal_predictions[i] - dropout_predictions[i]);
+
+	for (int i = 0; i < total_dropped_synapses; i++) {
+		synapses_to_drop[i]->dropout_utility_estimate = this->trace_decay_rate * synapses_to_drop[i]->dropout_utility_estimate + (1-this->trace_decay_rate) * sum_of_differences;
+		synapses_to_drop[i]->is_dropped_out = false;
+	}
+}
+
+
+void PretrainedDenseNetwork::prune_using_dropout_utility_estimator() {
+	if (all_synapses.size() < this->min_synapses_to_keep)
+		return;
+
+	int total_removals = 1;
+	std::vector<SyncedSynapse *> all_synapses_copy(this->all_synapses);
+
+	std::nth_element(all_synapses_copy.begin(),
+	                 all_synapses_copy.begin() + total_removals,
+	                 all_synapses_copy.end(),
+	                 []( auto a, auto b ) {
+		return fabs(a->dropout_utility_estimate) < fabs(b->dropout_utility_estimate);
+	} );
+
+	for (int i = 0; i < total_removals; i++)
+		all_synapses_copy[i]->is_useless = true;
+}
+
+
+void PretrainedDenseNetwork::prune_using_trace_of_activation_magnitude() {
+	if (all_synapses.size() < this->min_synapses_to_keep)
+		return;
+
+	int total_removals = 1;
+	std::vector<SyncedSynapse *> all_synapses_copy(this->all_synapses);
+
+	std::nth_element(all_synapses_copy.begin(),
+	                 all_synapses_copy.begin() + total_removals,
+	                 all_synapses_copy.end(),
+	                 []( auto a, auto b ) {
+		return fabs(a->activation_trace) < fabs(b->activation_trace);
+	} );
+
+	for (int i = 0; i < total_removals; i++)
+		all_synapses_copy[i]->is_useless = true;
+}
+
+
+void PretrainedDenseNetwork::prune_using_weight_magnitude_pruner() {
+	if (all_synapses.size() < this->min_synapses_to_keep)
+		return;
+
+	int total_removals = 1;
+	std::vector<SyncedSynapse *> all_synapses_copy(this->all_synapses);
+
+	std::nth_element(all_synapses_copy.begin(),
+	                 all_synapses_copy.begin() + total_removals,
+	                 all_synapses_copy.end(),
+	                 []( auto a, auto b ) {
+		return fabs(a->weight) < fabs(b->weight);
+	} );
+
+	for (int i = 0; i < total_removals; i++) {
+		all_synapses_copy[i]->is_useless = true;
+	}
+}
+
+
+void PretrainedDenseNetwork::prune_using_random_pruner() {
+	if (all_synapses.size() < this->min_synapses_to_keep)
+		return;
+
+	int total_removals = 1;
+	std::vector<SyncedSynapse *> synapses_to_remove;
+	std::sample(this->all_synapses.begin(),
+	            this->all_synapses.end(),
+	            std::back_inserter(synapses_to_remove),
+	            total_removals,
+	            this->mt);
+
+	for (int i = 0; i < total_removals; i++) {
+		synapses_to_remove[i]->is_useless = true;
+	}
+}
+
+
+void PretrainedDenseNetwork::prune_using_utility_propoagation() {
+	if (all_synapses.size() < this->min_synapses_to_keep)
+		return;
+
+	int total_removals = 1;
+	std::vector<SyncedSynapse *> all_synapses_copy(this->all_synapses);
+
+	std::nth_element(all_synapses_copy.begin(),
+	                 all_synapses_copy.begin() + total_removals,
+	                 all_synapses_copy.end(),
+	                 []( auto a, auto b ) {
+		return a->synapse_utility < b->synapse_utility;
+	} );
+	for (int i = 0; i < total_removals; i++) {
+		all_synapses_copy[i]->is_useless = true;
+	}
+}
+
+
 int PretrainedDenseNetwork::get_current_synapse_schedule() {
 	return std::max(int(this->min_synapses_to_keep),
 	                int( this->total_initial_synapses - ( (this->time_step - this->start_pruning_at) / this->prune_interval )));
@@ -396,16 +375,6 @@ int PretrainedDenseNetwork::get_current_synapse_schedule() {
 
 
 void PretrainedDenseNetwork::prune_weights(std::string pruner){
-
-	//if (this->time_step % 1000 == 0) {
-	//	std::cout << "Current syn: " << all_synapses.size() << std::endl;
-	//	std::cout << "Initial syn: " << this->total_initial_synapses << std::endl;
-	//	std::cout << "step: " << this->time_step << std::endl;
-	//	std::cout << "step-: " << (this->time_step - this->start_pruning_at) / this->prune_interval<< std::endl;
-	//	std::cout << "noint: " << this->total_initial_synapses - ((this->time_step - this->start_pruning_at) / this->prune_interval)<< std::endl;
-	//	std::cout << "int: " << int(this->total_initial_synapses - ((this->time_step - this->start_pruning_at) / this->prune_interval))<< std::endl;
-	//}
-	//std::cout << "Current syn should be: " << (total_initial_synapses - ( (this->time_step - this->start_pruning_at) /this->prune_interval)) << std::endl;
 	if (this->time_step > this->prune_interval && this->time_step > this->start_pruning_at && this->time_step % this->prune_interval == 0) {
 		if (this->all_synapses.size() > this->get_current_synapse_schedule()) {
 			//std::cout << "pruuuuuuuuuuuuuuuuuuuuuuuune" << std::endl;
@@ -440,22 +409,15 @@ void PretrainedDenseNetwork::prune_weights(std::string pruner){
 
 			int counter=0;
 			for(int vector_ind = 0; vector_ind < this->all_neuron_layers.size(); vector_ind++) {
-				//    for (auto LTU_neuron_list: this->all_neuron_layers) {
 				counter++;
 
 				auto it_n = std::remove_if(this->all_neuron_layers[vector_ind].begin(),
 				                           this->all_neuron_layers[vector_ind].end(),
 				                           to_delete_synced_n);
 				if (it_n != this->all_neuron_layers[vector_ind].end()) {
-					//        std::cout << "Deleting unused neurons\n";
-					//        std::cout << this->all_neuron_layers[vector_ind].size() << std::endl;
 					this->all_neuron_layers[vector_ind].erase(it_n, this->all_neuron_layers[vector_ind].end());
-					//        std::cout << this->all_neuron_layers[vector_ind].size() << std::endl;
 				}
 			}
-			//      LTU_neuron_list.erase(it_n, LTU_neuron_list.end());
-
-
 
 			auto it = std::remove_if(this->all_synapses.begin(), this->all_synapses.end(), to_delete_synced_s);
 			this->all_synapses.erase(it, this->all_synapses.end());
