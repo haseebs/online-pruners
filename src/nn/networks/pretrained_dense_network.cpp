@@ -85,7 +85,6 @@ PretrainedDenseNetwork::~PretrainedDenseNetwork() {
 }
 
 
-
 void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 
 //  std::cout << "Set inputs\n";
@@ -201,13 +200,18 @@ void PretrainedDenseNetwork::update_weights() {
 }
 
 
-void PretrainedDenseNetwork::update_utility_estimates(std::string pruner){
+void PretrainedDenseNetwork::update_utility_estimates(std::string pruner,
+                                                      std::vector<float> input,
+                                                      std::vector<float> prediction,
+                                                      int dropout_iterations,
+                                                      float dropout_perc){
 	if (pruner == "utility_propagation")
 		this->update_utility_propagation_estimates();
 	else if (pruner == "activation_trace")
 		this->update_activation_trace_estimates();
 	else if (pruner == "dropout_utility_estimator")
-		this->update_dropout_utility_estimates();
+      for (int k = 0; k < dropout_iterations; k++)
+        this->update_dropout_utility_estimates(input, prediction, dropout_perc);
 }
 
 
@@ -375,7 +379,9 @@ int PretrainedDenseNetwork::get_current_synapse_schedule() {
 
 
 void PretrainedDenseNetwork::prune_weights(std::string pruner){
-	if (this->time_step > this->prune_interval && this->time_step > this->start_pruning_at && this->time_step % this->prune_interval == 0) {
+	if (this->time_step > this->prune_interval &&
+      this->time_step > this->start_pruning_at &&
+      this->time_step % this->prune_interval == 0) {
 		if (this->all_synapses.size() > this->get_current_synapse_schedule()) {
 			//std::cout << "pruuuuuuuuuuuuuuuuuuuuuuuune" << std::endl;
 			if (pruner == "utility_propagation")
