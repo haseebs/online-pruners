@@ -6,7 +6,7 @@ import torch.nn.functional as F
 class FCNetSingle(nn.Module):
     # This defines the structure of the NN.
     def __init__(self):
-        super(FCNet, self).__init__()
+        super(FCNetSingle, self).__init__()
         self.fc1 = nn.Linear(14 * 14, 20, bias=False)
         self.fc2 = nn.Linear(20, 20, bias=False)
         self.fc3 = nn.Linear(20, 20, bias=False)
