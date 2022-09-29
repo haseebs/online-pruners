@@ -38,15 +38,15 @@ def test(cuda, model, test_loader):
         if cuda:
             data, target = data.cuda(), target.cuda()
         with torch.no_grad():
+            target = target % 2
             data, target = Variable(data), Variable(target)
             output = model(data)
+
             test_loss += F.mse_loss(
-                output,
-                F.one_hot(target, num_classes=10).type(torch.FloatTensor),
-                size_average=False,
+                output, target.type(torch.FloatTensor).unsqueeze(1)
             ).data
             # test_loss += F.nll_loss(output, target, size_average=False).data
-            pred = output.data.max(1, keepdim=True)[1]
+            pred = 1 * (output.data > 0.5)
             correct += pred.eq(target.data.view_as(pred)).long().cpu().sum()
 
     test_loss /= len(test_loader.dataset)
@@ -129,10 +129,7 @@ def main():
         for batch_idx, (data, target) in enumerate(train_loader):
             step += 1
             # target is checking whether its even or odd
-            if target % 2 == 0:
-                target = 1
-            else:
-                target = 0
+            target = target % 2
             if exp.get_int_param("cuda"):
                 data, target = data.cuda(), target.cuda()
             data, target = Variable(data), Variable(target)
@@ -140,13 +137,12 @@ def main():
             output = model(data)
             # loss = F.nll_loss(output, target)
             loss = F.mse_loss(
-                output, target.type(torch.FloatTensor)
+                output, target.type(torch.FloatTensor).unsqueeze(1)
             )
             loss.backward()
             optimizer.step()
 
-            from IPython import embed; embed()
-            pred = output.data.max(1, keepdim=True)[1]
+            pred = 1 * (output.data > 0.5)
             correct = pred.eq(target.data.view_as(pred)).long().cpu().sum()
             running_acc = 0.995 * running_acc + 0.005 * correct / exp.get_int_param(
                 "batch_size"
@@ -185,7 +181,7 @@ def main():
     #if exp.get_int_param("cuda"):
     #    sample = sample
     #traced_script_module = torch.jit.trace(model, sample)
-    #traced_script_module.save("trained_models/mnist_untrained_" + str(exp.get_int_param("seed")) + ".pt")
+    #traced_script_module.save("trained_models/mnist_binary_pretrained_" + str(exp.get_int_param("seed")) + ".pt")
 
 
 if __name__ == "__main__":
