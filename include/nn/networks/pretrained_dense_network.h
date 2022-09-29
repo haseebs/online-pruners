@@ -38,7 +38,7 @@ class PretrainedDenseNetwork : public SyncedNetwork {
                          int no_of_input_features,
                          float utility_to_keep,
                          float perc_prune,
-                         in\n\nt min_synapses_to_keep,
+                         int min_synapses_to_keep,
                          int prune_interval,
                          int start_pruning_at,
                          float trace_decay_rate);

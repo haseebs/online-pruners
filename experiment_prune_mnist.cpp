@@ -24,7 +24,7 @@
 
 
 int main(int argc, char *argv[]){
-  auto start = std::chrono::steady_clock::now();
+	auto start = std::chrono::steady_clock::now();
 	float running_error = 6;
 	float accuracy = 0.1;
 	Experiment *exp = new ExperimentJSON(argc, argv);
@@ -38,9 +38,9 @@ int main(int argc, char *argv[]){
 	                             std::vector < std::string > {"int", "int", "int", "int"},
 	                             std::vector < std::string > {"step", "run", "layer_no"});
 	Metric run_state_metric = Metric(exp->database_name, "run_state",
-	                                  std::vector < std::string > {"run", "error", "accuracy", "state", "run_time"},
-	                                  std::vector < std::string > {"int", "real", "real", "VARCHAR(40)", "VARCHAR(60)"},
-	                                  std::vector < std::string > {"run"});
+	                                 std::vector < std::string > {"run", "error", "accuracy", "state", "run_time"},
+	                                 std::vector < std::string > {"int", "real", "real", "VARCHAR(40)", "VARCHAR(60)"},
+	                                 std::vector < std::string > {"run"});
 
 
 	torch::jit::script::Module trained_model;
@@ -62,8 +62,8 @@ int main(int argc, char *argv[]){
 	                                                        exp->get_float_param("perc_prune"),
 	                                                        exp->get_int_param("min_synapses_to_keep"),
 	                                                        exp->get_int_param("prune_interval"),
-                                                          exp->get_int_param("start_pruning_at"),
-                                                          exp->get_float_param("trace_decay_rate"));
+	                                                        exp->get_int_param("start_pruning_at"),
+	                                                        exp->get_float_param("trace_decay_rate"));
 
 	std::vector<std::vector<std::string> > error_logger;
 	std::vector<std::vector<std::string> > state_logger;
@@ -80,8 +80,8 @@ int main(int argc, char *argv[]){
 		std::vector<float> x_temp;
 		auto x = torch::nn::functional::interpolate(train_dataset.get_batch(counter).data,
 		                                            torch::nn::functional::InterpolateFuncOptions()
-                                                .size(std::vector<int64_t>({14,14}))
-                                                .mode(torch::kBilinear).align_corners(false));
+		                                            .size(std::vector<int64_t>({14,14}))
+		                                            .mode(torch::kBilinear).align_corners(false));
 		auto x_vec = x.reshape({14*14});
 		for (int i = 0; i < 14*14; i++)
 			x_temp.push_back(x_vec.index({i}).item<float>());
@@ -97,10 +97,10 @@ int main(int argc, char *argv[]){
 	int total_data_points = exp->get_int_param("training_points");
 	int total_steps = 0;
 	bool update_weights = true;
-  if (exp->get_float_param("step_size") == 0)
-    update_weights = false;
+	if (exp->get_float_param("step_size") == 0)
+		update_weights = false;
 
-  int total_initial_synapses = network.all_synapses.size();
+	int total_initial_synapses = network.all_synapses.size();
 
 	std::uniform_int_distribution<int> index_sampler(0, total_data_points - 1);
 
@@ -126,18 +126,18 @@ int main(int argc, char *argv[]){
 		else
 			accuracy*= 0.995;
 
-    if (update_weights)
-      network.backward(y);
+		if (update_weights)
+			network.backward(y);
 
-    network.update_utility_estimates(exp->get_string_param("pruner_type"),
-                                     x,
-                                     prediction,
-                                     exp->get_int_param("dropout_estimator_iterations"),
-                                     exp->get_float_param("dropout_perc"));
-    network.prune_weights(exp->get_string_param("pruner_type"));
+		network.update_utility_estimates(exp->get_string_param("pruner_type"),
+		                                 x,
+		                                 prediction,
+		                                 exp->get_int_param("dropout_estimator_iterations"),
+		                                 exp->get_float_param("dropout_perc"));
+		network.prune_weights(exp->get_string_param("pruner_type"));
 
-    if (update_weights)
-      network.update_weights();
+		if (update_weights)
+			network.update_weights();
 
 		if (i % 1000 == 0) {
 			std::vector<std::string> error;
@@ -208,14 +208,13 @@ int main(int argc, char *argv[]){
 	error_logger.clear();
 	state_logger.clear();
 
-  auto end = std::chrono::steady_clock::now();
-  auto elapsed = std::to_string(std::chrono::duration_cast<std::chrono::minutes>(end - begin).count());
-  std::vector<std::string> state_data;
-  state_data.push_back(std::to_string(exp->get_int_param("run")));
-  state_data.push_back(std::to_string(running_error));
-  state_data.push_back(std::to_string(accuracy));
-  state_data.push_back("finished");
-  state_data.push_back(elapsed);
-  run_state_metric.add_value(state_data);
-  run_state_metric.clear();
+	auto end = std::chrono::steady_clock::now();
+	auto elapsed = std::to_string(std::chrono::duration_cast<std::chrono::minutes>(end - start).count());
+	std::vector<std::string> state_data;
+	state_data.push_back(std::to_string(exp->get_int_param("run")));
+	state_data.push_back(std::to_string(running_error));
+	state_data.push_back(std::to_string(accuracy));
+	state_data.push_back("finished");
+	state_data.push_back(elapsed);
+	run_state_metric.add_value(state_data);
 }
