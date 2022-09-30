@@ -147,6 +147,7 @@ def main():
             running_acc = 0.995 * running_acc + 0.005 * correct / exp.get_int_param(
                 "batch_size"
             )
+            running_err = 0.995 * running_err + 0.005 * loss.item()
             if batch_idx % 1000 == 0:
                 print(
                     "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tRunning Acc: {:.3f}".format(
@@ -165,7 +166,7 @@ def main():
                         str(epoch),
                         str(step),
                         str(running_acc.detach().item()),
-                        str(0),
+                        str(running_err),
                         str(test_acc),
                         str(sum(p.numel() for p in model.parameters())),
                     ]
@@ -175,13 +176,13 @@ def main():
 
     print("total time: \t", str(timedelta(seconds=timer() - start)))
 
-    #model.eval()
-    #model.cpu()
-    #sample = [x for x, y in test_loader][0]
+    model.eval()
+    model.cpu()
+    sample = [x for x, y in test_loader][0]
     #if exp.get_int_param("cuda"):
     #    sample = sample
-    #traced_script_module = torch.jit.trace(model, sample)
-    #traced_script_module.save("trained_models/mnist_binary_pretrained_" + str(exp.get_int_param("seed")) + ".pt")
+    traced_script_module = torch.jit.trace(model, sample)
+    traced_script_module.save("trained_models/mnist_binary_pretrained_" + str(exp.get_int_param("seed")) + ".pt")
 
 
 if __name__ == "__main__":

@@ -30,8 +30,8 @@ int main(int argc, char *argv[]){
 	Experiment *exp = new ExperimentJSON(argc, argv);
 
 	Metric error_metric = Metric(exp->database_name, "error_table",
-	                             std::vector < std::string > {"step", "run", "error", "accuracy", "step_acc", "n_params", "param_schedule"},
-	                             std::vector < std::string > {"int", "int", "real", "real", "real", "int", "int"},
+	                             std::vector < std::string > {"step", "run", "error", "accuracy", "n_params", "param_schedule"},
+	                             std::vector < std::string > {"int", "int", "real", "real", "int", "int"},
 	                             std::vector < std::string > {"step", "run"});
 	Metric state_metric = Metric(exp->database_name, "state_metric",
 	                             std::vector < std::string > {"step", "run", "layer_no", "nparams"},
@@ -87,10 +87,10 @@ int main(int argc, char *argv[]){
 			x_temp.push_back(x_vec.index({i}).item<float>());
 		images.push_back(x_temp);
 
-		if train_dataset.get_batch(counter).target.item<float>() % 2 == 0:
-		  targets.push_back(1.0);
-    else:
-      targets.push_back(0.0);
+		if (int(train_dataset.get_batch(counter).target.item<float>()) % 2 == 0)
+		  targets.push_back(0.0);
+    else
+      targets.push_back(1.0);
 	}
 
 	std::mt19937 mt(exp->get_int_param("seed"));
@@ -120,11 +120,11 @@ int main(int argc, char *argv[]){
 		for(int i = 0; i<prediction.size(); i++) {
 			error += (prediction[i]-y[i])*(prediction[i]-y[i]);
 		}
-		running_error = running_error * 0.995 + 0.005 * sqrt(error);
+		running_error = running_error * 0.999 + 0.001 * sqrt(error);
     if( (prediction[0] > 0.5 && y[0] == 1) || (prediction[0] <=0.5 && y[0] == 0) )
-			accuracy = accuracy*0.995 + 0.005;
+			accuracy = accuracy*0.999 + 0.001;
 		else
-			accuracy*= 0.995;
+			accuracy*= 0.999;
 
 		if (update_weights)
 			network.backward(y);
@@ -145,7 +145,6 @@ int main(int argc, char *argv[]){
 			error.push_back(std::to_string(exp->get_int_param("run")));
 			error.push_back(std::to_string(running_error));
 			error.push_back(std::to_string(accuracy));
-			error.push_back(std::to_string(argmax(prediction) == y_index));
 			error.push_back(std::to_string(network.all_synapses.size()));
 			error.push_back(std::to_string(network.get_current_synapse_schedule()));
 			error_logger.push_back(error);
@@ -181,7 +180,7 @@ int main(int argc, char *argv[]){
 			std::cout <<  1000 << "\t" << network.output_neurons.size() << "\t" << n_layer_synapses << "/" << network.all_synapses.size() << "\t\t" << network.output_synapses.size() <<  std::endl;
 
 			std::cout << "Running accuracy = " << accuracy << std::endl;
-			std::cout << "GT " << y_index <<  " Pred = " << argmax(prediction) << std::endl;
+			std::cout << "GT " << y[0] <<  " Pred = " << argmax(prediction) << std::endl;
 			std::cout << " Target\n";
 			print_vector(y);
 
