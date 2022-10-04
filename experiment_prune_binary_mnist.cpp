@@ -96,7 +96,6 @@ int main(int argc, char *argv[]){
 	std::mt19937 mt(exp->get_int_param("seed"));
 
 	int total_data_points = exp->get_int_param("training_points");
-	int total_steps = 0;
 	bool update_weights = true;
 	if (exp->get_float_param("step_size") == 0)
 		update_weights = false;
@@ -106,7 +105,6 @@ int main(int argc, char *argv[]){
 	std::uniform_int_distribution<int> index_sampler(0, total_data_points - 1);
 
 	for (int i = 0; i < exp->get_int_param("steps"); i++) {
-		total_steps++;
 		int index = index_sampler(mt);
 		auto x = images[index];
 		std::vector<float> y;
@@ -150,7 +148,7 @@ int main(int argc, char *argv[]){
 			error_logger.push_back(error);
 		}
 
-		if (i % 100000 == 0) {
+		if (i % 500000 == 0) {
 			std::cout << "Step " << i << std::endl;
 			std::cout << "Network confing\n";
 			std::cout << "No\tSize\tSynapses\tOutput\n";
@@ -192,15 +190,13 @@ int main(int argc, char *argv[]){
 		}
 
 
-		if(i % 50000 == 0) {
+		if(i % 100000 == 0) {
 			std::cout << error_logger.size() << std::endl;
 			error_metric.add_values(error_logger);
 			state_metric.add_values(state_logger);
 			error_logger.clear();
 			state_logger.clear();
 		}
-
-		total_steps++;
 	}
 	error_metric.add_values(error_logger);
 	state_metric.add_values(state_logger);

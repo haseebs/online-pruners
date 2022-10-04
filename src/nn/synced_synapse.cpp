@@ -42,7 +42,7 @@ SyncedSynapse::SyncedSynapse(SyncedNeuron *input, SyncedNeuron *output, float w,
 	this->activation_trace = 0;
 	this->is_dropped_out = false;
   //TODO how do I initialize this?
-	this->dropout_utility_estimate = 1;
+	this->dropout_utility_estimate = 0;
 }
 //
 

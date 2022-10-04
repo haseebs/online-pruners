@@ -1,5 +1,5 @@
-#ifndef INCLUDE_NN_NETWORKS_DENSE_NETWORK_H_
-#define INCLUDE_NN_NETWORKS_DENSE_NETWORK_H_
+#ifndef INCLUDE_NN_NETWORKS_TEST_NETWORK_H_
+#define INCLUDE_NN_NETWORKS_TEST_NETWORK_H_
 
 
 #include <vector>
@@ -10,9 +10,8 @@
 #include "../synced_neuron.h"
 #include "../dynamic_elem.h"
 #include "./synced_network.h"
-#include <torch/script.h>
 
-class PretrainedDenseNetwork : public SyncedNetwork {
+class SmallTestNetwork : public SyncedNetwork {
 
  private:
 
@@ -22,43 +21,24 @@ class PretrainedDenseNetwork : public SyncedNetwork {
 
  public:
 
-  float perc_prune;
   int min_synapses_to_keep;
   int prune_interval;
   int start_pruning_at;
   int total_initial_synapses;
   float trace_decay_rate;
-  std::vector<SyncedSynapse *> active_synapses;
 
   std::vector<std::vector<SyncedNeuron *>> all_neuron_layers;
 
-  PretrainedDenseNetwork(torch::jit::script::Module trained_model,
-                         float step_size,
-                         int seed,
-                         int no_of_input_features,
-                         float utility_to_keep,
-                         float perc_prune,
-                         int min_synapses_to_keep,
-                         int prune_interval,
-                         int start_pruning_at,
-                         float trace_decay_rate);
+  SmallTestNetwork(float seed);
 
-  ~PretrainedDenseNetwork();
-
-  void print_graph(SyncedNeuron *root);
-  void print_synapse_status();
-
-  void viz_graph();
-
-  void set_print_bool();
-
-  std::string get_viz_graph();
+  ~SmallTestNetwork();
 
   void forward(std::vector<float> inputs);
 
   void backward(std::vector<float> targets);
 
   void update_weights();
+  void print_synapse_status();
 
   void prune_using_dropout_utility_estimator();
   void prune_using_utility_propoagation();
@@ -77,4 +57,4 @@ class PretrainedDenseNetwork : public SyncedNetwork {
 };
 
 
-#endif //INCLUDE_NN_NETWORKS_DENSE_NETWORK_H_
+#endif //INCLUDE_NN_NETWORKS_TEST_NETWORK_H_

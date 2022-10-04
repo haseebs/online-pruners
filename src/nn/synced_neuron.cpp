@@ -26,6 +26,7 @@ SyncedNeuron::SyncedNeuron(bool is_input, bool is_output) {
 	mark_useless_prob = 0.99;
 	is_bias_unit = false;
 	is_mature = false;
+  sum_of_utility_traces = 0;
 }
 
 void SyncedNeuron::set_layer_number(int layer) {
@@ -251,8 +252,16 @@ float ReluSyncedNeuron::backward(float post_activation) {
 		return 0;
 }
 
-float SigmoidSyncedNeuron::forward(float temp_value) {
+float CenteredSigmoidSyncedNeuron::forward(float temp_value) {
+  //Note: this is different from normal sigmoid
+	return sigmoid(temp_value) - 0.5;
+}
 
+float CenteredSigmoidSyncedNeuron::backward(float post_activation) {
+	return post_activation * (1 - post_activation);
+}
+
+float SigmoidSyncedNeuron::forward(float temp_value) {
 	return sigmoid(temp_value);
 }
 
@@ -279,6 +288,9 @@ float LTUSynced::backward(float output_grad) {
 }
 
 ReluSyncedNeuron::ReluSyncedNeuron(bool is_input, bool is_output) : SyncedNeuron(is_input, is_output) {
+}
+
+CenteredSigmoidSyncedNeuron::SigmoidSyncedNeuron(bool is_input, bool is_output) : SyncedNeuron(is_input, is_output) {
 }
 
 SigmoidSyncedNeuron::SigmoidSyncedNeuron(bool is_input, bool is_output) : SyncedNeuron(is_input, is_output) {

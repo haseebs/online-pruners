@@ -102,6 +102,15 @@ class SigmoidSyncedNeuron : public SyncedNeuron {
   SigmoidSyncedNeuron(bool is_input, bool is_output);
 };
 
+class CenteredSigmoidSyncedNeuron : public SyncedNeuron {
+ public:
+  float backward(float output_grad);
+
+  float forward(float temp_value);
+
+  CenteredSigmoidSyncedNeuron(bool is_input, bool is_output);
+};
+
 
 class ReluSyncedNeuron : public SyncedNeuron {
  public:

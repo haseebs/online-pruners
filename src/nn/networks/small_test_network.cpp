@@ -1,31 +1,18 @@
 #include <execution>
 #include <algorithm>
 #include <iostream>
-#include "../../../include/nn/networks/pretrained_dense_network.h"
+#include "../../../include/nn/networks/small_test_network.h"
 
-#include <torch/script.h>
 
-using namespace torch::indexing;
-
-PretrainedDenseNetwork::PretrainedDenseNetwork(torch::jit::script::Module trained_model,
-                                               float step_size,
-                                               int seed,
-                                               int no_of_input_features,
-                                               float utility_to_keep,
-                                               float perc_prune,
-                                               int min_synapses_to_keep,
-                                               int prune_interval,
-                                               int start_pruning_at,
-                                               float trace_decay_rate) {
+SmallTestNetwork::SmallTestNetwork(float seed) {
 
 	this->mt.seed(seed);
-	this->perc_prune = perc_prune;
-	this->min_synapses_to_keep = min_synapses_to_keep;
-	this->prune_interval = prune_interval;
-	this->start_pruning_at = start_pruning_at;
-	this->trace_decay_rate = trace_decay_rate;
+	this->min_synapses_to_keep = 1;
+	this->prune_interval = 10000;
+	this->start_pruning_at = 10000;
+	this->trace_decay_rate = 0.999;
 
-	for (int i = 0; i < no_of_input_features; i++) {
+	for (int i = 0; i < 2; i++) {
 		SyncedNeuron *n = new LinearSyncedNeuron(true, false);
 		n->neuron_age = 10000000;
 		n->drinking_age = 0;
@@ -34,58 +21,57 @@ PretrainedDenseNetwork::PretrainedDenseNetwork(torch::jit::script::Module traine
 		this->all_neurons.push_back(n);
 	}
 
-	int current_layer_number = 1;
-	for (const auto& param_group : trained_model.parameters()) {
-		std::vector<SyncedNeuron*> curr_layer;
+  std::vector<SyncedNeuron*> curr_layer;
+  SyncedNeuron *n = new SigmoidSyncedNeuron(false, false);
+  n->neuron_age = 0;
+  n->drinking_age = 20000;
+  n->set_layer_number(1);
+  this->all_neurons.push_back(static_cast<SyncedNeuron*>(n));
+  curr_layer.push_back(static_cast<SyncedNeuron*>(n));
+  this->all_neuron_layers.push_back(curr_layer);
 
-		for (int neuron_idx = 0; neuron_idx < param_group.size(0); neuron_idx++) {
-			SyncedNeuron *n;
-			if (current_layer_number == trained_model.parameters().size()) {
-				n = new CenteredSigmoidSyncedNeuron(false, true);
-				this->output_neurons.push_back(n);
-			}
-			else
-				n = new ReluSyncedNeuron(false, false);
-			n->neuron_age = 0;
-			n->drinking_age = 20000;
-			n->set_layer_number(current_layer_number);
-			this->all_neurons.push_back(static_cast<SyncedNeuron*>(n));
-			curr_layer.push_back(static_cast<SyncedNeuron*>(n));
 
-			for (int synapse_idx = 0; synapse_idx < param_group.size(1); synapse_idx++) {
-				SyncedNeuron *source_neuron;
-				if (current_layer_number > 1)
-					source_neuron = this->all_neuron_layers[current_layer_number-2][synapse_idx];
-				else
-					source_neuron = this->input_neurons[synapse_idx];
-				auto new_synapse = new SyncedSynapse(source_neuron,
-				                                     n,
-				                                     param_group.index({neuron_idx, synapse_idx}).item<float>(),
-				                                     step_size);
-				new_synapse->set_utility_to_keep(utility_to_keep);
-				new_synapse->trace_decay_rate = trace_decay_rate;
-				this->all_synapses.push_back(new_synapse);
-			}
+  SyncedNeuron *out_n = new LinearSyncedNeuron(false, true);
+  out_n->neuron_age = 0;
+  out_n->drinking_age = 20000;
+  out_n->set_layer_number(2);
+  this->output_neurons.push_back(out_n);
+  this->all_neurons.push_back(static_cast<SyncedNeuron*>(out_n));
 
-		}
 
-		if (current_layer_number < trained_model.parameters().size())
-			this->all_neuron_layers.push_back(curr_layer);
-		if (current_layer_number > trained_model.parameters().size()) {
-			std::cout << "shouldnt happen" <<std::endl;
-			exit(1);
-		}
-		current_layer_number += 1;
-	}
+  auto new_synapse = new SyncedSynapse(this->input_neurons[0],
+                                       n,
+                                       1000,
+                                       0);
+  new_synapse->set_utility_to_keep(0);
+  new_synapse->trace_decay_rate = trace_decay_rate;
+  this->all_synapses.push_back(new_synapse);
+
+  auto new_synapse1 = new SyncedSynapse(n,
+                                        out_n,
+                                        1,
+                                        0);
+  new_synapse1->set_utility_to_keep(0);
+  new_synapse1->trace_decay_rate = trace_decay_rate;
+  this->all_synapses.push_back(new_synapse1);
+
+  auto new_synapse2 = new SyncedSynapse(this->input_neurons[1],
+                                        out_n,
+                                        0.2,
+                                        0);
+  new_synapse2->set_utility_to_keep(0);
+  new_synapse2->trace_decay_rate = trace_decay_rate;
+  this->all_synapses.push_back(new_synapse2);
+
 	this->total_initial_synapses = this->all_synapses.size();
-
-}
-
-PretrainedDenseNetwork::~PretrainedDenseNetwork() {
 }
 
 
-void PretrainedDenseNetwork::print_synapse_status() {
+SmallTestNetwork::~SmallTestNetwork() {
+}
+
+
+void SmallTestNetwork::print_synapse_status() {
   std::cout << "From\t\tTo\t\tWeight\t\tUtil_P\t\tDrop\t\tAct\t\tStep-size\t\tAge\n";
   for (auto it : this->all_synapses) {
     //if (it->output_neuron->neuron_age > it->output_neuron->drinking_age
@@ -99,8 +85,13 @@ void PretrainedDenseNetwork::print_synapse_status() {
 }
 
 
-void PretrainedDenseNetwork::forward(std::vector<float> inp) {
+void SmallTestNetwork::forward(std::vector<float> inp) {
+
+//  std::cout << "Set inputs\n";
+
 	this->set_input_values(inp);
+
+//  std::cout << "Firing\n";
 
 	std::for_each(
 		std::execution::unseq,
@@ -110,9 +101,12 @@ void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 		n->fire(this->time_step);
 	});
 
+
+
 	int counter = 0;
 	for (auto LTU_neuron_list: this->all_neuron_layers) {
 		counter++;
+//    std::cout << "Updating values " << counter << "\n";
 		std::for_each(
 			std::execution::unseq,
 			LTU_neuron_list.begin(),
@@ -120,6 +114,8 @@ void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 			[&](SyncedNeuron *n) {
 			n->update_value(this->time_step);
 		});
+
+//    std::cout << "Firing " << counter << "\n";
 		std::for_each(
 			std::execution::unseq,
 			LTU_neuron_list.begin(),
@@ -127,8 +123,11 @@ void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 			[&](SyncedNeuron *n) {
 			n->fire(this->time_step);
 		});
+
 	}
 
+
+//  std::cout << "Updating values output \n";
 	std::for_each(
 		std::execution::unseq,
 		this->output_neurons.begin(),
@@ -137,6 +136,7 @@ void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 		n->update_value(this->time_step);
 	});
 
+//  std::cout << "Firing output \n";
 	std::for_each(
 		std::execution::unseq,
 		this->output_neurons.begin(),
@@ -145,11 +145,12 @@ void PretrainedDenseNetwork::forward(std::vector<float> inp) {
 		n->fire(this->time_step);
 	});
 
+//  std::cout << "Updating neuron utility \n";
+
 	this->time_step++;
 }
 
-
-void PretrainedDenseNetwork::backward(std::vector<float> target) {
+void SmallTestNetwork::backward(std::vector<float> target) {
 	this->introduce_targets(target);
 
 	std::for_each(
@@ -168,6 +169,7 @@ void PretrainedDenseNetwork::backward(std::vector<float> target) {
 			[&](SyncedNeuron *n) {
 			n->propagate_error();
 		});
+
 		std::for_each(
 			std::execution::unseq,
 			this->all_neuron_layers[layer].begin(),
@@ -187,7 +189,7 @@ void PretrainedDenseNetwork::backward(std::vector<float> target) {
 }
 
 
-void PretrainedDenseNetwork::update_weights() {
+void SmallTestNetwork::update_weights() {
 	std::for_each(
 		std::execution::unseq,
 		all_synapses.begin(),
@@ -198,22 +200,20 @@ void PretrainedDenseNetwork::update_weights() {
 }
 
 
-void PretrainedDenseNetwork::update_utility_estimates(std::string pruner,
+void SmallTestNetwork::update_utility_estimates(std::string pruner,
                                                       std::vector<float> input,
                                                       std::vector<float> prediction,
                                                       int dropout_iterations,
                                                       float dropout_perc){
-	if (pruner == "utility_propagation")
-		this->update_utility_propagation_estimates();
-	else if (pruner == "activation_trace")
-		this->update_activation_trace_estimates();
-	else if (pruner == "dropout_utility_estimator")
-      for (int k = 0; k < dropout_iterations; k++)
-        this->update_dropout_utility_estimates(input, prediction, dropout_perc);
+  //TODO updating all estimates here
+  this->update_utility_propagation_estimates();
+  this->update_activation_trace_estimates();
+  for (int k = 0; k < dropout_iterations; k++)
+    this->update_dropout_utility_estimates(input, prediction, dropout_perc);
 }
 
 
-void PretrainedDenseNetwork::update_activation_trace_estimates(){
+void SmallTestNetwork::update_activation_trace_estimates(){
 	std::for_each(
 		std::execution::unseq,
 		all_synapses.begin(),
@@ -224,7 +224,7 @@ void PretrainedDenseNetwork::update_activation_trace_estimates(){
 }
 
 
-void PretrainedDenseNetwork::update_utility_propagation_estimates(){
+void SmallTestNetwork::update_utility_propagation_estimates(){
 	std::for_each(
 		std::execution::unseq,
 		this->all_neurons.begin(),
@@ -243,7 +243,7 @@ void PretrainedDenseNetwork::update_utility_propagation_estimates(){
 }
 
 
-void PretrainedDenseNetwork::update_dropout_utility_estimates(std::vector<float> inp,
+void SmallTestNetwork::update_dropout_utility_estimates(std::vector<float> inp,
                                                               std::vector<float> normal_predictions,
                                                               float dropout_perc){
 	int total_dropped_synapses = this->all_synapses.size() * dropout_perc;
@@ -267,8 +267,8 @@ void PretrainedDenseNetwork::update_dropout_utility_estimates(std::vector<float>
 	float sum_of_differences = 0;
   //TODO for multiple predictions, adjust the relative change
 	for (int i = 0; i < dropout_predictions.size(); i++)
-		sum_of_differences += fabs(normal_predictions[i] - dropout_predictions[i]);
-		//sum_of_differences += fabs((dropout_predictions[i] - normal_predictions[i] )/ normal_predictions[i]);
+		sum_of_differences += fabs((dropout_predictions[i] - normal_predictions[i] )/ normal_predictions[i]);
+		//sum_of_differences += fabs(normal_predictions[i] - dropout_predictions[i]);
 
 	for (int i = 0; i < total_dropped_synapses; i++) {
 		synapses_to_drop[i]->dropout_utility_estimate = this->trace_decay_rate * synapses_to_drop[i]->dropout_utility_estimate + (1-this->trace_decay_rate) * sum_of_differences;
@@ -277,7 +277,7 @@ void PretrainedDenseNetwork::update_dropout_utility_estimates(std::vector<float>
 }
 
 
-void PretrainedDenseNetwork::prune_using_dropout_utility_estimator() {
+void SmallTestNetwork::prune_using_dropout_utility_estimator() {
 	if (all_synapses.size() < this->min_synapses_to_keep)
 		return;
 
@@ -296,7 +296,7 @@ void PretrainedDenseNetwork::prune_using_dropout_utility_estimator() {
 }
 
 
-void PretrainedDenseNetwork::prune_using_trace_of_activation_magnitude() {
+void SmallTestNetwork::prune_using_trace_of_activation_magnitude() {
 	if (all_synapses.size() < this->min_synapses_to_keep)
 		return;
 
@@ -315,7 +315,7 @@ void PretrainedDenseNetwork::prune_using_trace_of_activation_magnitude() {
 }
 
 
-void PretrainedDenseNetwork::prune_using_weight_magnitude_pruner() {
+void SmallTestNetwork::prune_using_weight_magnitude_pruner() {
 	if (all_synapses.size() < this->min_synapses_to_keep)
 		return;
 
@@ -335,7 +335,7 @@ void PretrainedDenseNetwork::prune_using_weight_magnitude_pruner() {
 }
 
 
-void PretrainedDenseNetwork::prune_using_random_pruner() {
+void SmallTestNetwork::prune_using_random_pruner() {
 	if (all_synapses.size() < this->min_synapses_to_keep)
 		return;
 
@@ -353,7 +353,7 @@ void PretrainedDenseNetwork::prune_using_random_pruner() {
 }
 
 
-void PretrainedDenseNetwork::prune_using_utility_propoagation() {
+void SmallTestNetwork::prune_using_utility_propoagation() {
 	if (all_synapses.size() < this->min_synapses_to_keep)
 		return;
 
@@ -372,13 +372,13 @@ void PretrainedDenseNetwork::prune_using_utility_propoagation() {
 }
 
 
-int PretrainedDenseNetwork::get_current_synapse_schedule() {
+int SmallTestNetwork::get_current_synapse_schedule() {
 	return std::max(int(this->min_synapses_to_keep),
 	                int( this->total_initial_synapses - ( (this->time_step - this->start_pruning_at) / this->prune_interval )));
 }
 
 
-void PretrainedDenseNetwork::prune_weights(std::string pruner){
+void SmallTestNetwork::prune_weights(std::string pruner){
 	if (this->time_step > this->prune_interval &&
       this->time_step > this->start_pruning_at &&
       this->time_step % this->prune_interval == 0) {
