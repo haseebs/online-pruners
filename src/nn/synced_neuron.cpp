@@ -290,7 +290,7 @@ float LTUSynced::backward(float output_grad) {
 ReluSyncedNeuron::ReluSyncedNeuron(bool is_input, bool is_output) : SyncedNeuron(is_input, is_output) {
 }
 
-CenteredSigmoidSyncedNeuron::SigmoidSyncedNeuron(bool is_input, bool is_output) : SyncedNeuron(is_input, is_output) {
+CenteredSigmoidSyncedNeuron::CenteredSigmoidSyncedNeuron(bool is_input, bool is_output) : SyncedNeuron(is_input, is_output) {
 }
 
 SigmoidSyncedNeuron::SigmoidSyncedNeuron(bool is_input, bool is_output) : SyncedNeuron(is_input, is_output) {
