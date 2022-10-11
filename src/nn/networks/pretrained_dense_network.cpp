@@ -267,8 +267,8 @@ void PretrainedDenseNetwork::update_dropout_utility_estimates(std::vector<float>
 	float sum_of_differences = 0;
   //TODO for multiple predictions, adjust the relative change
 	for (int i = 0; i < dropout_predictions.size(); i++)
-		sum_of_differences += fabs((dropout_predictions[i] - normal_predictions[i] )/ normal_predictions[i]);
-		//sum_of_differences += fabs(normal_predictions[i] - dropout_predictions[i]);
+		sum_of_differences += fabs(normal_predictions[i] - dropout_predictions[i]);
+		//sum_of_differences += fabs((dropout_predictions[i] - normal_predictions[i] )/ normal_predictions[i]);
 
 	for (int i = 0; i < total_dropped_synapses; i++) {
 		synapses_to_drop[i]->dropout_utility_estimate = this->trace_decay_rate * synapses_to_drop[i]->dropout_utility_estimate + (1-this->trace_decay_rate) * sum_of_differences;

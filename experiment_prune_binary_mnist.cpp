@@ -137,7 +137,7 @@ int main(int argc, char *argv[]){
 		if (update_weights)
 			network.update_weights();
 
-		if (i % 1000 == 0) {
+		if (i % 10000 == 0) {
 			std::vector<std::string> error;
 			error.push_back(std::to_string(i));
 			error.push_back(std::to_string(exp->get_int_param("run")));
@@ -148,7 +148,7 @@ int main(int argc, char *argv[]){
 			error_logger.push_back(error);
 		}
 
-		if (i % 500000 == 0) {
+		if (false && i % 500000 == 0) {
 			std::cout << "Step " << i << std::endl;
 			std::cout << "Network confing\n";
 			std::cout << "No\tSize\tSynapses\tOutput\n";
@@ -193,15 +193,15 @@ int main(int argc, char *argv[]){
 		if(i % 100000 == 0) {
 			std::cout << error_logger.size() << std::endl;
 			error_metric.add_values(error_logger);
-			state_metric.add_values(state_logger);
+			//state_metric.add_values(state_logger);
 			error_logger.clear();
-			state_logger.clear();
+			//state_logger.clear();
 		}
 	}
 	error_metric.add_values(error_logger);
-	state_metric.add_values(state_logger);
+	//state_metric.add_values(state_logger);
 	error_logger.clear();
-	state_logger.clear();
+	//state_logger.clear();
 
 	auto end = std::chrono::steady_clock::now();
 	auto elapsed = std::to_string(std::chrono::duration_cast<std::chrono::minutes>(end - start).count());
