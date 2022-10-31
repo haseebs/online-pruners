@@ -1,7 +1,3 @@
-//
-// Created by Khurram Javed on 2021-03-16.
-//
-
 #ifndef INCLUDE_UTILS_H_
 #define INCLUDE_UTILS_H_
 

@@ -14,7 +14,7 @@
 
 class PretrainedDenseNetwork : public SyncedNetwork {
 
- private:
+ protected:
 
   void update_activation_trace_estimates();
   void update_utility_propagation_estimates();
@@ -32,11 +32,7 @@ class PretrainedDenseNetwork : public SyncedNetwork {
 
   std::vector<std::vector<SyncedNeuron *>> all_neuron_layers;
 
-  PretrainedDenseNetwork(torch::jit::script::Module trained_model,
-                         float step_size,
-                         int seed,
-                         int no_of_input_features,
-                         float utility_to_keep,
+  PretrainedDenseNetwork(int seed,
                          float perc_prune,
                          int min_synapses_to_keep,
                          int prune_interval,
@@ -44,6 +40,18 @@ class PretrainedDenseNetwork : public SyncedNetwork {
                          float trace_decay_rate);
 
   ~PretrainedDenseNetwork();
+
+  void load_relu_network(torch::jit::script::Module trained_model,
+                         float step_size,
+                         int no_of_input_features,
+                         float utility_to_keep,
+                         float trace_decay_rate);
+
+  void load_linear_network(torch::jit::script::Module trained_model,
+                           float step_size,
+                           int no_of_input_features,
+                           float utility_to_keep,
+                           float trace_decay_rate);
 
   void print_graph(SyncedNeuron *root);
   void print_synapse_status();

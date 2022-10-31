@@ -54,16 +54,24 @@ int main(int argc, char *argv[]){
 		return -1;
 	}
 
-	PretrainedDenseNetwork network = PretrainedDenseNetwork(trained_model,
-	                                                        exp->get_float_param("step_size"),
-	                                                        exp->get_int_param("seed"),
-	                                                        14*14,
-	                                                        exp->get_float_param("utility_to_keep"),
-	                                                        exp->get_float_param("perc_prune"),
-	                                                        exp->get_int_param("min_synapses_to_keep"),
-	                                                        exp->get_int_param("prune_interval"),
-	                                                        exp->get_int_param("start_pruning_at"),
-	                                                        exp->get_float_param("trace_decay_rate"));
+	PretrainedDenseNetwork net = PretrainedDenseNetwork(exp->get_int_param("seed"),
+	                                                    exp->get_float_param("perc_prune"),
+	                                                    exp->get_int_param("min_synapses_to_keep"),
+	                                                    exp->get_int_param("prune_interval"),
+	                                                    exp->get_int_param("start_pruning_at"),
+	                                                    exp->get_float_param("trace_decay_rate"));
+	if (exp->get_int_param("linear_only"))
+		net.load_linear_network(trained_model,
+		                        exp->get_float_param("step_size"),
+		                        14*14,
+		                        exp->get_float_param("utility_to_keep"),
+		                        exp->get_float_param("trace_decay_rate"));
+	else
+		net.load_relu_network(trained_model,
+		                      exp->get_float_param("step_size"),
+		                      14*14,
+		                      exp->get_float_param("utility_to_keep"),
+		                      exp->get_float_param("trace_decay_rate"));
 
 	std::vector<std::vector<std::string> > error_logger;
 	std::vector<std::vector<std::string> > state_logger;
@@ -88,9 +96,9 @@ int main(int argc, char *argv[]){
 		images.push_back(x_temp);
 
 		if (int(train_dataset.get_batch(counter).target.item<float>()) % 2 == 0)
-		  targets.push_back(0.0);
-    else
-      targets.push_back(1.0);
+			targets.push_back(0.0);
+		else
+			targets.push_back(1.0);
 	}
 
 	std::mt19937 mt(exp->get_int_param("seed"));
@@ -100,7 +108,7 @@ int main(int argc, char *argv[]){
 	if (exp->get_float_param("step_size") == 0)
 		update_weights = false;
 
-	int total_initial_synapses = network.all_synapses.size();
+	int total_initial_synapses = net.all_synapses.size();
 
 	std::uniform_int_distribution<int> index_sampler(0, total_data_points - 1);
 
@@ -108,10 +116,10 @@ int main(int argc, char *argv[]){
 		int index = index_sampler(mt);
 		auto x = images[index];
 		std::vector<float> y;
-    y.push_back(targets[index]);
+		y.push_back(targets[index]);
 
-		network.forward(x);
-		auto prediction = network.read_output_values();
+		net.forward(x);
+		auto prediction = net.read_output_values();
 
 
 		float error = 0;
@@ -119,23 +127,23 @@ int main(int argc, char *argv[]){
 			error += (prediction[i]-y[i])*(prediction[i]-y[i]);
 		}
 		running_error = running_error * 0.999 + 0.001 * sqrt(error);
-    if( (prediction[0] > 0.5 && y[0] == 1) || (prediction[0] <=0.5 && y[0] == 0) )
+		if( (prediction[0] > 0.5 && y[0] == 1) || (prediction[0] <=0.5 && y[0] == 0) )
 			accuracy = accuracy*0.999 + 0.001;
 		else
 			accuracy*= 0.999;
 
 		if (update_weights)
-			network.backward(y);
+			net.backward(y);
 
-		network.update_utility_estimates(exp->get_string_param("pruner_type"),
-		                                 x,
-		                                 prediction,
-		                                 exp->get_int_param("dropout_estimator_iterations"),
-		                                 exp->get_float_param("dropout_perc"));
-		network.prune_weights(exp->get_string_param("pruner_type"));
+		net.update_utility_estimates(exp->get_string_param("pruner_type"),
+		                             x,
+		                             prediction,
+		                             exp->get_int_param("dropout_estimator_iterations"),
+		                             exp->get_float_param("dropout_perc"));
+		net.prune_weights(exp->get_string_param("pruner_type"));
 
 		if (update_weights)
-			network.update_weights();
+			net.update_weights();
 
 		if (i % 10000 == 0) {
 			std::vector<std::string> error;
@@ -143,8 +151,8 @@ int main(int argc, char *argv[]){
 			error.push_back(std::to_string(exp->get_int_param("run")));
 			error.push_back(std::to_string(running_error));
 			error.push_back(std::to_string(accuracy));
-			error.push_back(std::to_string(network.all_synapses.size()));
-			error.push_back(std::to_string(network.get_current_synapse_schedule()));
+			error.push_back(std::to_string(net.all_synapses.size()));
+			error.push_back(std::to_string(net.get_current_synapse_schedule()));
 			error_logger.push_back(error);
 		}
 
@@ -154,9 +162,9 @@ int main(int argc, char *argv[]){
 			std::cout << "No\tSize\tSynapses\tOutput\n";
 
 
-			for(int layer_no = 0; layer_no < network.all_neuron_layers.size(); layer_no++) {
+			for(int layer_no = 0; layer_no < net.all_neuron_layers.size(); layer_no++) {
 				int n_layer_synapses = 0;
-				for (auto n : network.all_neuron_layers[layer_no])
+				for (auto n : net.all_neuron_layers[layer_no])
 					n_layer_synapses += n->incoming_synapses.size();
 				std::vector<std::string> state;
 				state.push_back(std::to_string(i));
@@ -164,10 +172,10 @@ int main(int argc, char *argv[]){
 				state.push_back(std::to_string(layer_no));
 				state.push_back(std::to_string(n_layer_synapses));
 				state_logger.push_back(state);
-				std::cout <<  layer_no << "\t" << network.all_neuron_layers[layer_no].size() << "\t"<< n_layer_synapses << "/" << network.all_synapses.size() << "\t\t" << network.output_synapses.size() <<  std::endl;
+				std::cout <<  layer_no << "\t" << net.all_neuron_layers[layer_no].size() << "\t"<< n_layer_synapses << "/" << net.all_synapses.size() << "\t\t" << net.output_synapses.size() <<  std::endl;
 			}
 			int n_layer_synapses = 0;
-			for (auto n : network.output_neurons)
+			for (auto n : net.output_neurons)
 				n_layer_synapses += n->incoming_synapses.size();
 			std::vector<std::string> state;
 			state.push_back(std::to_string(i));
@@ -175,7 +183,7 @@ int main(int argc, char *argv[]){
 			state.push_back(std::to_string(1000));
 			state.push_back(std::to_string(n_layer_synapses));
 			state_logger.push_back(state);
-			std::cout <<  1000 << "\t" << network.output_neurons.size() << "\t" << n_layer_synapses << "/" << network.all_synapses.size() << "\t\t" << network.output_synapses.size() <<  std::endl;
+			std::cout <<  1000 << "\t" << net.output_neurons.size() << "\t" << n_layer_synapses << "/" << net.all_synapses.size() << "\t\t" << net.output_synapses.size() <<  std::endl;
 
 			std::cout << "Running accuracy = " << accuracy << std::endl;
 			std::cout << "GT " << y[0] <<  " Pred = " << argmax(prediction) << std::endl;
@@ -186,7 +194,7 @@ int main(int argc, char *argv[]){
 			print_vector(prediction);
 			std::cout << "Running error = " << running_error << std::endl;
 
-			//network.print_synapse_status();
+			//net.print_synapse_status();
 		}
 
 

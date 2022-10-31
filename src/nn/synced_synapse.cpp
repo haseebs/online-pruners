@@ -1,8 +1,3 @@
-//
-// Created by Khurram Javed on 2021-09-20.
-//
-
-
 #include "../../include/nn/synced_synapse.h"
 #include <math.h>
 #include <vector>
