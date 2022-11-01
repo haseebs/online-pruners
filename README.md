@@ -1,1 +1,1 @@
-# pytorch-baseline-trainer
+![Build](https://github.com/haseebs/online-pruners/actions/workflows/cmake.yml/badge.svg?event=push) ![cpplint](https://github.com/haseebs/online-pruners/actions/workflows/cpplint.yml/badge.svg?event=push)
