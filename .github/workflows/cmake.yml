@@ -21,7 +21,7 @@ jobs:
     - uses: actions/checkout@v3
     
     - name: Setup Env
-      run: sudo apt update && sudo apt install libtbb-dev &&  sudo apt install lcov
+      run: sudo apt update && sudo apt install libtbb-dev &&  sudo apt install lcov && sudo apt install mariadb && sudo apt install mariadb-connector-c
       
     - name: Setup libtorch
       run: wget https://download.pytorch.org/libtorch/nightly/cpu/libtorch-shared-with-deps-latest.zip && unzip libtorch-shared-with-deps-latest.zip
