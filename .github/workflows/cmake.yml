@@ -20,6 +20,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
+    - name: Setup Env
+      run: sudo apt update && sudo apt install libtbb-dev &&  sudo apt install lcov
+      
     - name: Setup libtorch
       run: wget https://download.pytorch.org/libtorch/nightly/cpu/libtorch-shared-with-deps-latest.zip && unzip libtorch-shared-with-deps-latest.zip
 
