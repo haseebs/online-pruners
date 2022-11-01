@@ -18,7 +18,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 #Cedar
 message( "Found environment variable SLURM_TMPDIR=$ENV{SLURM_TMPDIR}" )
 
-set(CMAKE_CXX_FLAGS "-O3 -ltbb -lpthread")
+option(WORKFLOW_COMPILER "Options when compiling using github workflow" OFF)
+if(WORKFLOW_COMPILER)
+    set(CMAKE_CXX_FLAGS "-O3 -ltbb -lpthread -ldl -lm -I/usr/include/mariadb")
+else()
+    set(CMAKE_CXX_FLAGS "-O3 -ltbb -lpthread")
+endif(WORKFLOW_COMPILER)
+
 find_package(Torch REQUIRED)
 
 add_subdirectory(pybind11)
